@@ -549,6 +549,8 @@ body.admin-mode .photo-status-actions{display:flex}
     let firebaseApp=null,auth=null,db=null,liveReady=false,liveConnected=false,liveError=false;
     let publicDocReady=false,mediaCollectionReady=false;
     let serverMeta=null,serverMedia={};
+    const mediaWatchers=new Map();
+    let mediaReadError=false;
     let publishedMedia={};
     let publishQueue=Promise.resolve(),pendingPublishes=0;
     let remoteGuard=false;
@@ -657,7 +659,7 @@ body.admin-mode .photo-status-actions{display:flex}
       if(isAdmin){
         try{await auth.signOut();setAdminMode(false);showToast('Berhasil keluar admin. Foto warga tetap terlihat.')}catch(e){showToast('Gagal keluar: '+e.message)}
       }else{
-        if(!db||!liveReady){showToast('Firebase belum tersambung. Periksa konfigurasi dan aturan Firestore.');return;}
+        if(!db||!liveReady){showToast('Belum dapat membuka admin: periksa izin Firestore Rules untuk siTengoroPublic dan siTengoroMedia.');return;}
         resetAdminLoginForm();document.getElementById('adminModalBackdrop').hidden=false;
         document.getElementById('adminUser').focus();
       }
@@ -786,7 +788,9 @@ body.admin-mode .photo-status-actions{display:flex}
         contacts:CONTACTS.map(c=>({...c})),
         gallery:siteState.gallery.map(({photo,...rest})=>rest),
         news:siteState.news.map(({photo,...rest})=>rest),
-        site:{...siteState.site},updatedAt:Date.now()
+        site:{...siteState.site},
+        mediaKeys:Object.keys(mediaSnapshot()).sort(),
+        updatedAt:Date.now()
       };
     }
     function mediaSnapshot(){
@@ -810,6 +814,53 @@ body.admin-mode .photo-status-actions{display:flex}
         if(id.startsWith('contact-'))contactPhotos[id.slice(8)]=dataUrl;
       }
       return {contacts,images,contactPhotos,site,gallery,news,updatedAt:serverMeta?.updatedAt||1};
+    }
+    // Baca gambar sebagai DOKUMEN SATU PER SATU (Firestore get), bukan query semua dokumen (list).
+    // Dokumentasi firestore.rules membolehkan get publik, tapi list ditolak.
+    function mediaKeysFromMetadata(){
+      if(Array.isArray(serverMeta?.mediaKeys)){
+        return [...new Set(serverMeta.mediaKeys.filter(key=>typeof key==='string' && /^[A-Za-z0-9_-]{1,150}$/.test(key)))].slice(0,280);
+      }
+      // Backward compatibility untuk metadata versi lama yang belum punya mediaKeys.
+      const contacts=Array.isArray(serverMeta?.contacts)?serverMeta.contacts:embeddedBase.contacts||DEFAULT_CONTACTS;
+      const images=['logo','hero','layanan1','layanan2','layanan3','newsletter','promo',
+        ...SERVICES.map(x=>'service-'+x.id)];
+      return [...new Set([
+        ...contacts.filter(c=>c && /^[A-Za-z0-9_-]{1,100}$/.test(String(c.id))).map(c=>'contact-'+c.id),
+        ...images.map(x=>'image-'+x),
+        ...(serverMeta?.gallery||[]).filter(x=>x?.id).map(x=>'gallery-'+x.id),
+        ...(serverMeta?.news||[]).filter(x=>x?.id).map(x=>'news-'+x.id)
+      ])];
+    }
+    function updateMediaReady(){
+      const items=[...mediaWatchers.values()];
+      mediaCollectionReady=!mediaReadError && items.every(x=>x.ready);
+      if(mediaCollectionReady){publishedMedia={...serverMedia};applyServerData();}
+    }
+    function syncMediaDocListeners(){
+      const required=new Set(mediaKeysFromMetadata());
+      for(const [key,w] of mediaWatchers){
+        if(!required.has(key)){w.unsubscribe();mediaWatchers.delete(key);delete serverMedia[key];}
+      }
+      mediaReadError=false;
+      mediaCollectionReady=false;
+      for(const key of required){
+        if(mediaWatchers.has(key)) continue;
+        const watcher={ready:false,unsubscribe:()=>{}};
+        mediaWatchers.set(key,watcher);
+        watcher.unsubscribe=db.collection(FIREBASE_MEDIA_PATH).doc(key).onSnapshot(doc=>{
+          watcher.ready=true;
+          if(doc.exists && typeof doc.data()?.dataUrl==='string') serverMedia[key]=doc.data().dataUrl;
+          else delete serverMedia[key];
+          updateMediaReady();
+        },err=>{
+          watcher.ready=false;
+          mediaReadError=true;
+          liveReady=false;
+          onlineStatus('Akses foto "'+key+'" ditolak ('+(err.code||err.message)+'). Publikasikan Rules: izin get untuk siTengoroMedia.', 'error');
+        });
+      }
+      updateMediaReady();
     }
     function applyServerData(){
       if(!publicDocReady||!mediaCollectionReady||pendingPublishes>0)return;
@@ -889,14 +940,8 @@ body.admin-mode .photo-status-actions{display:flex}
         db.collection(FIREBASE_PUBLIC_PATH).doc('primary').onSnapshot(doc=>{
           serverMeta=doc.exists?doc.data():null;
           publicDocReady=true;
-          applyServerData();
-        }, err=>{liveReady=false;onlineStatus('Gagal membaca database Firebase: '+(err.code||err.message), 'error')});
-        db.collection(FIREBASE_MEDIA_PATH).onSnapshot(snapshot=>{
-          const all={};
-          snapshot.docs.forEach(d=>{if(typeof d.data().dataUrl==='string')all[d.id]=d.data().dataUrl});
-          serverMedia=all;publishedMedia={...all};mediaCollectionReady=true;
-          applyServerData();
-        },err=>{liveReady=false;onlineStatus('Gagal membaca foto online: '+(err.code||err.message), 'error')});
+          syncMediaDocListeners();
+        }, err=>{liveReady=false;onlineStatus('Akses data publik siTengoroPublic/primary ditolak: '+(err.code||err.message)+'. Periksa Rules get.', 'error')});
       }catch(err){liveReady=false;onlineStatus('Firebase belum aktif: '+(err.code||err.message), 'error')}
     }
 
