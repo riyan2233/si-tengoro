@@ -153,6 +153,18 @@ body.admin-mode .photo-status-actions{display:flex}
     #adminLoginForm .field:focus-within{outline:2px solid #93c5fd;outline-offset:1px}
     #adminLoginForm input{font-size:16px}
   </style>
+
+<style id="firebase-permission-help-style">
+  .firebase-help[hidden]{display:none!important}
+  .firebase-help{background:#fff;border:1px solid #f4d0d2;border-radius:17px;padding:16px 18px;margin:0 0 16px;box-shadow:0 4px 18px rgba(15,23,42,.03)}
+  .firebase-help h4{margin:0 0 8px;font-size:17px;color:#941a30}
+  .firebase-help p{font-size:13px;line-height:1.65;color:#475569;margin:0 0 8px}
+  .firebase-help ol{padding-left:22px;margin:9px 0 14px;color:#334155;font-size:13px;line-height:1.75}
+  .firebase-help .btn{font-size:13px;padding:10px 14px}
+  .firebase-help-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .firebase-help small{display:block;color:#64748b;margin-top:10px;line-height:1.55}
+  @media(max-width:520px){.firebase-help{padding:13px}.firebase-help-actions .btn{width:100%}}
+</style>
 </head>
 <body>
   <div class="topbar">
@@ -383,8 +395,8 @@ body.admin-mode .photo-status-actions{display:flex}
               <small id="photoStatusDetails">Foto yang belum tersedia perlu diunggah oleh admin.</small>
             </div>
             <div class="photo-status-actions">
-              <button type="button" class="btn btn-soft" onclick="importLocalPhotosIntoFirebase()">Ambil Foto Lama dari Browser Ini</button>
-              <button type="button" class="btn btn-soft" onclick="document.getElementById('restoreOldHtml').click()">Pulihkan Foto dari HTML Lama</button>
+              <button type="button" class="btn btn-soft admin-only" onclick="importLocalPhotosIntoFirebase()">Ambil Foto Lama dari Browser Ini</button>
+              <button type="button" class="btn btn-soft admin-only" onclick="document.getElementById('restoreOldHtml').click()">Pulihkan Foto dari HTML Lama</button>
               <button type="button" class="btn btn-primary" onclick="downloadCurrentHtml()">Cadangkan HTML</button>
               <input id="restoreOldHtml" type="file" hidden accept=".html,text/html" onchange="restoreOldHtmlPhotos(this)">
             </div>
@@ -393,6 +405,23 @@ body.admin-mode .photo-status-actions{display:flex}
               <span class="status-indicator" id="firebaseStatusDot"></span>
               <span id="firebaseStatusText">Menghubungkan database online ...</span>
             </div>
+            
+          <aside id="firebaseRepairGuide" class="firebase-help" hidden aria-live="polite">
+            <h4>Data online belum bisa dibaca</h4>
+            <p>Server Firebase menolak membaca <code>siTengoroPublic/primary</code> atau foto <code>siTengoroMedia/...</code>. Kode HTML tidak dapat mengubah izin server.</p>
+            <ol>
+              <li>Di <strong>Firebase Console → Firestore Database → Rules</strong>, pilih proyek yang sama dengan aplikasi.</li>
+              <li>Cadangkan aturan yang sudah ada. Tambahkan aturan <strong>get publik</strong> untuk dua koleksi SI-TENGORO (jangan menghapus aturan aplikasi lain).</li>
+              <li>Klik <strong>Publish</strong>, kemudian tekan <strong>Coba Lagi</strong> di bawah ini.</li>
+            </ol>
+            <div class="firebase-help-actions">
+              <a class="btn btn-soft" target="_blank" rel="noopener noreferrer" href="https://console.firebase.google.com/">Buka Firebase Console</a>
+              <button type="button" class="btn btn-ghost" onclick="copyFirebaseRulesFix()">Salin Aturan Tambahan</button>
+              <button type="button" class="btn btn-primary" onclick="window.location.reload()">Coba Lagi</button>
+            </div>
+            <small>Untuk foto yang belum pernah diunggah, admin tetap perlu mengunggahnya. Status ini tidak akan hilang hanya dengan mengganti file GitHub jika Rules Firebase masih menolak akses.</small>
+          </aside>
+
             <div class="contacts-grid" id="contactsGrid"></div>
         </div>
       </div>
@@ -496,7 +525,7 @@ body.admin-mode .photo-status-actions{display:flex}
       <div class="field" style="margin-bottom:10px"><label>Wilayah / Keterangan</label><input id="contactEditArea" maxlength="150" placeholder="Contoh: Dusun Tengororejo"></div>
       <div class="field" style="margin-bottom:10px"><label>Kategori</label><select id="contactEditCategory"><option value="pimpinan">Pimpinan Desa/Dusun</option><option value="rw">RW</option><option value="rt">RT</option><option value="linmas">Linmas</option><option value="lainnya">Kontak Lainnya</option></select></div>
       <div class="contact-editor-upload"><label for="contactEditPhoto" class="btn btn-soft">📷 Pilih Foto Kontak</label><input id="contactEditPhoto" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"><span id="contactPhotoLabel" class="muted" style="font-size:12px">Opsional</span></div>
-      <p class="help-note">Simpan perubahan, lalu gunakan tombol “Publikasikan / Unduh HTML” agar kontak terbaru tampil pada semua perangkat setelah diunggah ke GitHub.</p>
+      <p class="help-note">Jika status Firebase sudah tersambung, perubahan disimpan ke Firestore dan otomatis terlihat warga. Cadangan HTML tidak menggantikan izin Firestore.</p>
       <button class="btn btn-primary" type="submit" style="width:100%">Simpan Kontak</button>
     </form>
   </div>
@@ -534,6 +563,48 @@ body.admin-mode .photo-status-actions{display:flex}
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script id="firebaseRulesExample" type="text/plain">
+// Tempel DI DALAM match /databases/{database}/documents { ... } pada Rules lama
+    function isSiTengoroAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/siTengoroAdmins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/siTengoroAdmins/$(request.auth.uid)).data.active == true;
+    }
+
+    match /siTengoroAdmins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+    match /siTengoroPublic/{docId} {
+      allow get: if docId == 'primary';
+      allow list, delete: if false;
+      allow create, update: if docId == 'primary' && isSiTengoroAdmin()
+        && request.resource.data.keys().hasOnly(['contacts', 'gallery', 'news', 'site', 'mediaKeys', 'updatedAt'])
+        && request.resource.data.contacts is list
+        && request.resource.data.contacts.size() <= 150
+        && request.resource.data.gallery is list
+        && request.resource.data.gallery.size() <= 100
+        && request.resource.data.news is list
+        && request.resource.data.news.size() <= 100
+        && request.resource.data.site is map
+        && request.resource.data.mediaKeys is list
+        && request.resource.data.mediaKeys.size() <= 280
+        && request.resource.data.updatedAt is int;
+    }
+    match /siTengoroMedia/{mediaId} {
+      // Warga bisa membuka gambar yang ID-nya tercantum di metadata publik.
+      // Aplikasi tidak lagi meminta izin membaca seluruh koleksi.
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isSiTengoroAdmin()
+        && request.resource.data.keys().hasOnly(['dataUrl', 'updatedAt'])
+        && request.resource.data.dataUrl is string
+        && request.resource.data.dataUrl.size() <= 600000
+        && request.resource.data.dataUrl.matches('^data:image/(webp|jpeg|png);base64,.*')
+        && request.resource.data.updatedAt is int;
+      allow delete: if isSiTengoroAdmin();
+    }
+</script>
   <script id="embedded-state" type="application/json">{"images":{"hero":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%201600%20900%27%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20x2%3D%271%27%20y1%3D%270%27%20y2%3D%271%27%3E%3Cstop%20stop-color%3D%27%23dbeafe%27/%3E%3Cstop%20offset%3D%270.45%27%20stop-color%3D%27%2393c5fd%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%232563eb%27/%3E%3C/linearGradient%3E%3C/defs%3E%0A%3Crect%20width%3D%271600%27%20height%3D%27900%27%20fill%3D%27url%28%23g%29%27/%3E%0A%3Ccircle%20cx%3D%271200%27%20cy%3D%27150%27%20r%3D%2760%27%20fill%3D%27%23f59e0b%27%20opacity%3D%270.9%27/%3E%0A%3Ccircle%20cx%3D%271300%27%20cy%3D%27210%27%20r%3D%2735%27%20fill%3D%27%23fb923c%27%20opacity%3D%270.9%27/%3E%0A%3Cpath%20d%3D%27M0%20560%20C180%20480%20320%20500%20520%20560%20C760%20630%20940%20540%201120%20560%20C1340%20590%201450%20530%201600%20500%20L1600%20900%20L0%20900%20Z%27%20fill%3D%27%230b6bd3%27/%3E%0A%3Cpath%20d%3D%27M0%20600%20C180%20540%20330%20540%20540%20610%20C730%20675%20930%20620%201130%20620%20C1310%20620%201450%20580%201600%20560%20L1600%20900%20L0%20900%20Z%27%20fill%3D%27%230f4fb0%27/%3E%0A%3Cpath%20d%3D%27M910%20190%20L1080%20540%20L740%20540%20Z%27%20fill%3D%27%23dbeafe%27/%3E%0A%3Cpath%20d%3D%27M1080%20200%20L1300%20560%20L860%20560%20Z%27%20fill%3D%27%23bfdbfe%27/%3E%0A%3Cpath%20d%3D%27M1170%20270%20L1440%20610%20L980%20610%20Z%27%20fill%3D%27%2393c5fd%27/%3E%0A%3Crect%20x%3D%270%27%20y%3D%27610%27%20width%3D%271600%27%20height%3D%27290%27%20fill%3D%27%231d4ed8%27/%3E%0A%3Cpath%20d%3D%27M960%20650%20C1010%20600%201080%20580%201140%20620%20C1210%20660%201230%20720%201270%20770%20C1220%20790%201170%20810%201110%20820%20C1010%20835%20920%20810%20860%20760%20C900%20730%20930%20690%20960%20650%20Z%27%20fill%3D%27%230ea5e9%27/%3E%0A%3Cpath%20d%3D%27M1170%20470%20q35%2015%2055%2050%20q-18%2012%20-36%2012%20q-48%200%20-64%20-39%20q10%20-17%2045%20-23%20Z%27%20fill%3D%27%23f59e0b%27/%3E%0A%3Ccircle%20cx%3D%271185%27%20cy%3D%27447%27%20r%3D%2724%27%20fill%3D%27%23fbbf24%27/%3E%0A%3Cpath%20d%3D%27M1140%20500%20q60%200%2080%2062%20q-24%2042%20-60%2054%20q-42%20-38%20-65%20-90%20q14%20-17%2045%20-26%20Z%27%20fill%3D%27%2392400e%27/%3E%0A%3Cpath%20d%3D%27M1112%20493%20q13%2095%207%20152%27%20stroke%3D%27%237c2d12%27%20stroke-width%3D%2716%27%20stroke-linecap%3D%27round%27/%3E%0A%3Cpath%20d%3D%27M1072%20562%20q78%2013%20148%2097%27%20stroke%3D%27%23ca8a04%27%20stroke-width%3D%2734%27%20stroke-linecap%3D%27round%27/%3E%0A%3Cpath%20d%3D%27M1022%20730%20q118%20-26%20208%2043%27%20stroke%3D%27%231f2937%27%20stroke-width%3D%2724%27%20stroke-linecap%3D%27round%27%20opacity%3D%270.8%27/%3E%0A%3C/svg%3E","layanan1":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27a%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%2360a5fa%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%231d4ed8%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23a%29%27/%3E%3Ccircle%20cx%3D%27680%27%20cy%3D%2790%27%20r%3D%2762%27%20fill%3D%27%23fbbf24%27/%3E%3Crect%20x%3D%2770%27%20y%3D%27120%27%20width%3D%27300%27%20height%3D%27200%27%20rx%3D%2726%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.93%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27170%27%20width%3D%27200%27%20height%3D%2724%27%20rx%3D%2712%27%20fill%3D%27%231d4ed8%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27215%27%20width%3D%27160%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%2393c5fd%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27250%27%20width%3D%27110%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23bfdbfe%27/%3E%3Cpath%20d%3D%27M470%20350%20q80%20-150%20210%20-120%20q15%20100%20-70%20150%20q-80%2048%20-140%20-30%20Z%27%20fill%3D%27%23bbf7d0%27/%3E%3Cpath%20d%3D%27M520%20160%20l120%20220%27%20stroke%3D%27%2378350f%27%20stroke-width%3D%2716%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E","layanan2":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27b%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%2322c55e%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%2316a34a%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23b%29%27/%3E%3Crect%20x%3D%2780%27%20y%3D%27280%27%20width%3D%27640%27%20height%3D%27130%27%20rx%3D%2724%27%20fill%3D%27%23f0fdf4%27/%3E%3Crect%20x%3D%27140%27%20y%3D%27180%27%20width%3D%27210%27%20height%3D%27120%27%20rx%3D%2720%27%20fill%3D%27%23dcfce7%27/%3E%3Crect%20x%3D%27370%27%20y%3D%27140%27%20width%3D%27240%27%20height%3D%27160%27%20rx%3D%2724%27%20fill%3D%27%23ffffff%27/%3E%3Cpath%20d%3D%27M150%20390%20h500%27%20stroke%3D%27%2315803d%27%20stroke-width%3D%2714%27%20stroke-linecap%3D%27round%27/%3E%3Ccircle%20cx%3D%27160%27%20cy%3D%27390%27%20r%3D%2716%27%20fill%3D%27%23166534%27/%3E%3Ccircle%20cx%3D%27660%27%20cy%3D%27390%27%20r%3D%2716%27%20fill%3D%27%23166534%27/%3E%3C/svg%3E","layanan3":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27c%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%23f59e0b%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23ef4444%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23c%29%27/%3E%3Crect%20x%3D%27100%27%20y%3D%2790%27%20width%3D%27260%27%20height%3D%27320%27%20rx%3D%2728%27%20fill%3D%27%23fff7ed%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27145%27%20width%3D%27190%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23f59e0b%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27188%27%20width%3D%27150%27%20height%3D%2718%27%20rx%3D%279%27%20fill%3D%27%23fdba74%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27228%27%20width%3D%27170%27%20height%3D%2718%27%20rx%3D%279%27%20fill%3D%27%23fed7aa%27/%3E%3Cpath%20d%3D%27M500%20110%20q90%2035%20110%20145%20q-8%2093%20-104%20135%20q-71%20-22%20-114%20-72%20q26%20-108%20108%20-208%20Z%27%20fill%3D%27%23ffedd5%27/%3E%3Cpath%20d%3D%27M454%20354%20q98%20-23%20166%2010%27%20stroke%3D%27%237c2d12%27%20stroke-width%3D%2718%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E","promo":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27d%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%231d4ed8%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%230ea5e9%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23d%29%27/%3E%3Ccircle%20cx%3D%27190%27%20cy%3D%27370%27%20r%3D%27120%27%20fill%3D%27%2393c5fd%27/%3E%3Cpath%20d%3D%27M170%20200%20l70%2030%20-50%2030%2090%2020%20-70%2045%2025%2050%20-100%20-70%2035%20-45%20-70%20-25%2065%20-35%20-25%20-45%2030%20-10%20Z%27%20fill%3D%27%23fff%27/%3E%3Crect%20x%3D%27420%27%20y%3D%27110%27%20width%3D%27250%27%20height%3D%27220%27%20rx%3D%2726%27%20fill%3D%27%23eff6ff%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27155%27%20width%3D%27180%27%20height%3D%2724%27%20rx%3D%2712%27%20fill%3D%27%231d4ed8%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27205%27%20width%3D%27150%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%2360a5fa%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27245%27%20width%3D%27110%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23bfdbfe%27/%3E%3C/svg%3E","newsletter":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27e%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%232563eb%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%237c3aed%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23e%29%27/%3E%3Crect%20x%3D%27110%27%20y%3D%27115%27%20width%3D%27580%27%20height%3D%27260%27%20rx%3D%2734%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.18%27/%3E%3Crect%20x%3D%27160%27%20y%3D%27180%27%20width%3D%27330%27%20height%3D%2744%27%20rx%3D%2722%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.9%27/%3E%3Cpath%20d%3D%27M534%20180%20h86%20a24%2024%200%200%201%2024%2024%20v0%20a24%2024%200%200%201%20-24%2024%20h-86%20z%27%20fill%3D%27%2322c55e%27/%3E%3Cpath%20d%3D%27M590%20133%20c40%200%2072%2032%2072%2072%27%20stroke%3D%27%23fef3c7%27%20stroke-width%3D%2710%27%20stroke-linecap%3D%27round%27/%3E%3Cpath%20d%3D%27M594%2086%20c66%200%20120%2054%20120%20120%27%20stroke%3D%27%23fde68a%27%20stroke-width%3D%2710%27%20stroke-linecap%3D%27round%27%20opacity%3D%270.7%27/%3E%3C/svg%3E","logo":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%23dbeafe%22/%3E%3Cpath%20d%3D%22M16%2045L50%2016l34%2029%22%20fill%3D%22none%22%20stroke%3D%22%231d4ed8%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M25%2040v46h19V63h12v23h19V40%22%20fill%3D%22%23facc15%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%225%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E"},"contactPhotos":{},"site":{"headline":"Jelajahi Layanan Dusun, Mudahkan Urusan Warga","subheadline":"SI-TENGORO membantu warga Dusun Tengororejo mengurus administrasi, menyampaikan aspirasi, dan terhubung langsung dengan perangkat lingkungan.","promoTitle":"Info Cepat Minggu Ini","promoText":"Gunakan layanan online untuk pengajuan surat, laporan, dan koordinasi warga tanpa harus bingung mencari kontak."},"gallery":[],"news":[],"contacts":[{"id":"kades","category":"pimpinan","role":"KEPALA DESA SONGGON","shortRole":"Kepala Desa","name":"BAPAK MOH. QODERI, SH.","phoneDisplay":"+6281217666300","phoneWA":"6281217666300","wilayah":"Pemerintah Desa Songgon, Kec. Songgon"},{"id":"kasun","category":"pimpinan","role":"KEPALA DUSUN TENGOROREJO","shortRole":"Kepala Dusun","name":"BAPAK EKO MARIYANTO","phoneDisplay":"+6282220221046","phoneWA":"6282220221046","wilayah":"Dusun Tengororejo, Ds. Songgon"},{"id":"rw01","category":"rw","role":"KETUA RW 01","shortRole":"Ketua RW 01","name":"BAPAK WASIS","phoneDisplay":"+6282301524442","phoneWA":"6282301524442","wilayah":"Wilayah RW 01 - Dusun Tengororejo"},{"id":"rw02","category":"rw","role":"KETUA RW 02","shortRole":"Ketua RW 02","name":"BAPAK MOH HARIYANTO","phoneDisplay":"+6282331517898","phoneWA":"6282331517898","wilayah":"Wilayah RW 02 - Dusun Tengororejo"},{"id":"rt01_rw01","category":"rt","role":"KETUA RT 01 / RW 01","shortRole":"RT 01 RW 01","name":"BAPAK PONIMAN","phoneDisplay":"+6281515320529","phoneWA":"6281515320529","wilayah":"Lingkungan RT 01 / RW 01 - Tengororejo"},{"id":"rt02_rw01","category":"rt","role":"KETUA RT 02 / RW 01","shortRole":"RT 02 RW 01","name":"BAPAK BAMBANG MARIYONO","phoneDisplay":"+6281455124470","phoneWA":"6281455124470","wilayah":"Lingkungan RT 02 / RW 01 - Tengororejo"},{"id":"rt01_rw02","category":"rt","role":"KETUA RT 01 / RW 02","shortRole":"RT 01 RW 02","name":"BAPAK SUGIYONO","phoneDisplay":"+6285141675877","phoneWA":"6285141675877","wilayah":"Lingkungan RT 01 / RW 02 - Tengororejo"},{"id":"rt02_rw02","category":"rt","role":"KETUA RT 02 / RW 02","shortRole":"RT 02 RW 02","name":"BAPAK HARIYANTO","phoneDisplay":"+6282334206512","phoneWA":"6282334206512","wilayah":"Lingkungan RT 02 / RW 02 - Tengororejo"},{"id":"rt03_rw02","category":"rt","role":"KETUA RT 03 / RW 02","shortRole":"RT 03 RW 02","name":"BAPAK EKO SATRIYO","phoneDisplay":"+6282338936036","phoneWA":"6282338936036","wilayah":"Lingkungan RT 03 / RW 02 - Tengororejo"},{"id":"linmas1","category":"linmas","role":"LINMAS 1 TENGOROREJO","shortRole":"Linmas 1","name":"BAPAK MARIYONO","phoneDisplay":"+6285762469867","phoneWA":"6285762469867","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"},{"id":"linmas2","category":"linmas","role":"LINMAS 2 TENGOROREJO","shortRole":"Linmas 2","name":"BAPAK SUNARWO","phoneDisplay":"+6285812811033","phoneWA":"6285812811033","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"}],"updatedAt":1}</script>
   <script>
     const DEFAULT_CONTACTS = [{"id":"kades","category":"pimpinan","role":"KEPALA DESA SONGGON","shortRole":"Kepala Desa","name":"BAPAK MOH. QODERI, SH.","phoneDisplay":"+6281217666300","phoneWA":"6281217666300","wilayah":"Pemerintah Desa Songgon, Kec. Songgon"},{"id":"kasun","category":"pimpinan","role":"KEPALA DUSUN TENGOROREJO","shortRole":"Kepala Dusun","name":"BAPAK EKO MARIYANTO","phoneDisplay":"+6282220221046","phoneWA":"6282220221046","wilayah":"Dusun Tengororejo, Ds. Songgon"},{"id":"rw01","category":"rw","role":"KETUA RW 01","shortRole":"Ketua RW 01","name":"BAPAK WASIS","phoneDisplay":"+6282301524442","phoneWA":"6282301524442","wilayah":"Wilayah RW 01 - Dusun Tengororejo"},{"id":"rw02","category":"rw","role":"KETUA RW 02","shortRole":"Ketua RW 02","name":"BAPAK MOH HARIYANTO","phoneDisplay":"+6282331517898","phoneWA":"6282331517898","wilayah":"Wilayah RW 02 - Dusun Tengororejo"},{"id":"rt01_rw01","category":"rt","role":"KETUA RT 01 / RW 01","shortRole":"RT 01 RW 01","name":"BAPAK PONIMAN","phoneDisplay":"+6281515320529","phoneWA":"6281515320529","wilayah":"Lingkungan RT 01 / RW 01 - Tengororejo"},{"id":"rt02_rw01","category":"rt","role":"KETUA RT 02 / RW 01","shortRole":"RT 02 RW 01","name":"BAPAK BAMBANG MARIYONO","phoneDisplay":"+6281455124470","phoneWA":"6281455124470","wilayah":"Lingkungan RT 02 / RW 01 - Tengororejo"},{"id":"rt01_rw02","category":"rt","role":"KETUA RT 01 / RW 02","shortRole":"RT 01 RW 02","name":"BAPAK SUGIYONO","phoneDisplay":"+6285141675877","phoneWA":"6285141675877","wilayah":"Lingkungan RT 01 / RW 02 - Tengororejo"},{"id":"rt02_rw02","category":"rt","role":"KETUA RT 02 / RW 02","shortRole":"RT 02 RW 02","name":"BAPAK HARIYANTO","phoneDisplay":"+6282334206512","phoneWA":"6282334206512","wilayah":"Lingkungan RT 02 / RW 02 - Tengororejo"},{"id":"rt03_rw02","category":"rt","role":"KETUA RT 03 / RW 02","shortRole":"RT 03 RW 02","name":"BAPAK EKO SATRIYO","phoneDisplay":"+6282338936036","phoneWA":"6282338936036","wilayah":"Lingkungan RT 03 / RW 02 - Tengororejo"},{"id":"linmas1","category":"linmas","role":"LINMAS 1 TENGOROREJO","shortRole":"Linmas 1","name":"BAPAK MARIYONO","phoneDisplay":"+6285762469867","phoneWA":"6285762469867","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"},{"id":"linmas2","category":"linmas","role":"LINMAS 2 TENGOROREJO","shortRole":"Linmas 2","name":"BAPAK SUNARWO","phoneDisplay":"+6285812811033","phoneWA":"6285812811033","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"}];
@@ -659,7 +730,7 @@ body.admin-mode .photo-status-actions{display:flex}
       if(isAdmin){
         try{await auth.signOut();setAdminMode(false);showToast('Berhasil keluar admin. Foto warga tetap terlihat.')}catch(e){showToast('Gagal keluar: '+e.message)}
       }else{
-        if(!db||!liveReady){showToast('Belum dapat membuka admin: periksa izin Firestore Rules untuk siTengoroPublic dan siTengoroMedia.');return;}
+        if(!db||!auth){showToast('Firebase Authentication belum siap. Periksa konfigurasi dan koneksi.');return;}
         resetAdminLoginForm();document.getElementById('adminModalBackdrop').hidden=false;
         document.getElementById('adminUser').focus();
       }
@@ -684,12 +755,12 @@ body.admin-mode .photo-status-actions{display:flex}
       const msg=document.getElementById('loginError');msg.textContent='';
       const email=document.getElementById('adminUser').value.trim();
       const password=document.getElementById('adminPass').value;
-      if(!db||!liveReady){msg.textContent='Database online belum aktif. Periksa konfigurasi Firebase.';return;}
+      if(!db||!auth){msg.textContent='Firebase Authentication belum siap. Periksa konfigurasi Firebase.';return;}
       try{
         const session=await auth.signInWithEmailAndPassword(email,password);
         const adminDoc=await db.collection('siTengoroAdmins').doc(session.user.uid).get({source:'server'});
         if(adminDoc.exists&&adminDoc.data().active===true){
-          setAdminMode(true);closeAdminModal();resetAdminLoginForm();showToast('Login admin Firebase berhasil');
+          setAdminMode(true);closeAdminModal();resetAdminLoginForm();showToast(liveReady?'Login admin Firebase berhasil':'Login admin berhasil, tetapi Firestore belum mengizinkan akses publik. Publikasikan Rules untuk mengedit.');
         }else{
           await auth.signOut();setAdminMode(false);
           msg.textContent='Akun ini bukan admin. Tambahkan dokumen siTengoroAdmins/UID dengan active: true di Firebase Console.';
@@ -778,6 +849,14 @@ body.admin-mode .photo-status-actions{display:flex}
     function onlineStatus(message, mode='waiting'){
       const el=document.getElementById('firebaseStatus');
       if(el){el.className='online-status '+mode;document.getElementById('firebaseStatusText').textContent=message;}
+      const guide=document.getElementById('firebaseRepairGuide');
+      if(guide) guide.hidden=!(mode==='error' && /permission-denied|ditolak|Rules get|Akses foto/i.test(String(message)));
+    }
+    async function copyFirebaseRulesFix(){
+      const rules = document.getElementById('firebaseRulesExample')?.textContent || '';
+      if(!rules) return showToast('Aturan contoh belum ditemukan');
+      try{ await navigator.clipboard.writeText(rules); showToast('Potongan Rules disalin. Gabungkan ke aturan lama, jangan menggantinya.'); }
+      catch(e){showToast('Tidak dapat menyalin otomatis; gunakan file aturan di paket ZIP.');}
     }
     function renderAllPublic(){
       CONTACTS=siteState.contacts;
@@ -868,7 +947,7 @@ body.admin-mode .photo-status-actions{display:flex}
       CONTACTS=siteState.contacts;
       liveReady=true;
       try{localStorage.setItem(ONLINE_CACHE_KEY,JSON.stringify(siteState))}catch(e){}
-      onlineStatus(`Tersinkron dengan Firebase • ${CONTACTS.length} kontak. Perubahan admin tampil di semua HP.`, 'ok');
+      onlineStatus(serverMeta ? `Tersinkron dengan Firebase • ${CONTACTS.length} kontak. Perubahan admin tampil di semua HP.` : 'Firebase dapat dibaca, tetapi data publik belum pernah diterbitkan. Admin perlu login dan mengunggah foto/konten pertama.', serverMeta ? 'ok' : 'waiting');
       renderAllPublic();
     }
     function importLocalPhotosIntoFirebase(){
@@ -941,7 +1020,7 @@ body.admin-mode .photo-status-actions{display:flex}
           serverMeta=doc.exists?doc.data():null;
           publicDocReady=true;
           syncMediaDocListeners();
-        }, err=>{liveReady=false;onlineStatus('Akses data publik siTengoroPublic/primary ditolak: '+(err.code||err.message)+'. Periksa Rules get.', 'error')});
+        }, err=>{publicDocReady=false;liveReady=false;onlineStatus('Akses data publik siTengoroPublic/primary ditolak: '+(err.code||err.message)+'. Buka petunjuk perbaikan di bawah.', 'error')});
       }catch(err){liveReady=false;onlineStatus('Firebase belum aktif: '+(err.code||err.message), 'error')}
     }
 
