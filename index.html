@@ -167,6 +167,147 @@ body.admin-mode .photo-status-actions{display:flex}
 </style>
   <!-- Hanya layout: tidak mengubah JS, Firebase, atau konten -->
   <link rel="stylesheet" href="responsive-fix.css">
+  <style id="si-modal-stabilizer-style">
+
+
+/* =========================================================
+   SI-TENGORO • MODAL/FORMULIR PRESISI 2026
+   HANYA tampilan dan interaksi scroll: tidak mengubah data.
+   ========================================================= */
+:root {
+  --si-modal-viewport-height: 100dvh;
+  --si-modal-viewport-top: 0px;
+}
+
+html.si-modal-locked,
+body.si-modal-locked {
+  scroll-behavior: auto !important;
+  overscroll-behavior: none;
+}
+body.si-modal-locked {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+/* Jendela tetap di dalam area layar; halaman belakang tidak ikut terseret. */
+.modal-backdrop:not([hidden]) {
+  position: fixed !important;
+  box-sizing: border-box;
+  top: var(--si-modal-viewport-top, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: var(--si-modal-viewport-height, 100dvh) !important;
+  max-height: var(--si-modal-viewport-height, 100dvh) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: max(8px, env(safe-area-inset-top)) 12px
+           max(8px, env(safe-area-inset-bottom)) !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+  touch-action: none;
+  z-index: 500 !important;
+}
+
+/* HANYA isi formulir yang boleh di-scroll. */
+.modal-backdrop:not([hidden]) > .modal {
+  box-sizing: border-box !important;
+  position: relative !important;
+  margin: 0 auto !important;
+  width: min(820px, 100%) !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: calc(var(--si-modal-viewport-height, 100dvh) - 20px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto !important;
+  scroll-padding-block: 64px 28px;
+  touch-action: pan-y;
+  transform: none !important;
+  contain: layout;
+}
+.modal-backdrop:not([hidden]) > .modal.modal-sm {
+  width: min(440px, 100%) !important;
+}
+
+/* Judul dan tombol tutup tetap tampak selama mengisi formulir panjang. */
+.modal-backdrop:not([hidden]) .modal-head {
+  position: sticky !important;
+  top: -16px;
+  z-index: 2;
+  background: #fff;
+  padding: 12px 0 12px;
+  margin-top: -8px;
+  border-bottom: 1px solid #edf2fc;
+}
+.modal-backdrop:not([hidden]) .modal-close {
+  flex-shrink: 0;
+}
+.modal-backdrop:not([hidden]) .requirements,
+.modal-backdrop:not([hidden]) .field,
+.modal-backdrop:not([hidden]) .form-grid,
+.modal-backdrop:not([hidden]) .form-grid > *,
+.modal-backdrop:not([hidden]) form {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* iOS: ukuran 16px mencegah browser memperbesar halaman saat mengetik. */
+.modal-backdrop:not([hidden]) input:not([type="checkbox"]):not([type="radio"]),
+.modal-backdrop:not([hidden]) textarea,
+.modal-backdrop:not([hidden]) select {
+  font-size: 16px !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+  scroll-margin-block: 70px 28px;
+}
+.modal-backdrop:not([hidden]) .field:focus-within {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.1);
+}
+
+@media (max-width: 800px) {
+  .modal-backdrop:not([hidden]) {
+    align-items: flex-start !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  .modal-backdrop:not([hidden]) > .modal {
+    max-height: calc(var(--si-modal-viewport-height, 100dvh) - 16px) !important;
+    border-radius: 20px !important;
+    padding: 16px !important;
+  }
+  .modal-backdrop:not([hidden]) .modal-head {
+    top: -16px;
+  }
+  .modal-backdrop:not([hidden]) .form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+  .modal-backdrop:not([hidden]) .span-2 {
+    grid-column: 1 / -1 !important;
+  }
+  .modal-backdrop:not([hidden]) .field {
+    padding: 12px 13px !important;
+  }
+  .modal-backdrop:not([hidden]) .requirements {
+    padding: 13px !important;
+    margin-bottom: 14px !important;
+  }
+}
+@media (max-width: 375px) {
+  .modal-backdrop:not([hidden]) > .modal { padding: 12px !important; }
+  .modal-backdrop:not([hidden]) .modal-head h4 { font-size: 20px; }
+}
+
+  </style>
 </head>
 <body>
   <div class="topbar">
@@ -1029,5 +1170,94 @@ body.admin-mode .photo-status-actions{display:flex}
     renderSiteImages();renderServices();renderContacts();renderGallery();renderNews();renderHistory();updateAdminPill();
     window.addEventListener('load', initFirebaseOnline);
   </script>
+  <script id="si-modal-stabilizer">
+/* SI-TENGORO: penguncian scroll modal, tidak mengubah Firebase / data warga. */
+(() => {
+  'use strict';
+  const modals = [...document.querySelectorAll('.modal-backdrop')];
+  if (!modals.length) return;
+  const root = document.documentElement;
+  const body = document.body;
+  let locked = false;
+  let storedY = 0;
+  let bodyBackup = null;
+  let focusHandle = 0;
+  const openModal = () => modals.find(modal => !modal.hidden);
+
+  function syncViewport() {
+    const v = window.visualViewport;
+    const h = v ? v.height : window.innerHeight;
+    // Nilai offset untuk area visual di iOS saat keyboard terbuka.
+    const top = v ? v.offsetTop : 0;
+    root.style.setProperty('--si-modal-viewport-height', `${Math.max(140, Math.round(h))}px`);
+    root.style.setProperty('--si-modal-viewport-top', `${Math.max(0, Math.round(top))}px`);
+  }
+
+  function syncModal() {
+    const modal = openModal();
+    if (modal && !locked) {
+      storedY = window.scrollY || window.pageYOffset || 0;
+      bodyBackup = {
+        position: body.style.position,
+        top: body.style.top,
+        width: body.style.width,
+        left: body.style.left,
+        right: body.style.right,
+      };
+      body.style.position = 'fixed';
+      body.style.top = `${-storedY}px`;
+      body.style.width = '100%';
+      body.style.left = '0';
+      body.style.right = '0';
+      root.classList.add('si-modal-locked');
+      body.classList.add('si-modal-locked');
+      locked = true;
+    } else if (!modal && locked) {
+      root.classList.remove('si-modal-locked');
+      body.classList.remove('si-modal-locked');
+      for (const [key, value] of Object.entries(bodyBackup || {})) body.style[key] = value;
+      locked = false;
+      window.scrollTo({ top: storedY, left: 0, behavior: 'instant' });
+      root.style.removeProperty('--si-modal-viewport-top');
+      root.style.removeProperty('--si-modal-viewport-height');
+    }
+    if (modal) syncViewport();
+  }
+
+  function ensureFieldVisible(field) {
+    const dialog = field.closest('.modal-backdrop:not([hidden]) > .modal');
+    if (!dialog) return;
+    const box = dialog.getBoundingClientRect();
+    const rect = field.getBoundingClientRect();
+    const head = dialog.querySelector('.modal-head');
+    const headerBottom = head ? head.getBoundingClientRect().bottom : box.top;
+    const upper = Math.max(box.top, headerBottom) + 14;
+    const lower = box.bottom - 22;
+    if (rect.bottom > lower) dialog.scrollTop += rect.bottom - lower;
+    else if (rect.top < upper) dialog.scrollTop -= upper - rect.top;
+  }
+
+  const observer = new MutationObserver(syncModal);
+  modals.forEach(m => observer.observe(m, {attributes:true, attributeFilter:['hidden']}));
+  document.addEventListener('focusin', (event) => {
+    const field = event.target;
+    if (!field.matches?.('.modal-backdrop input, .modal-backdrop select, .modal-backdrop textarea')) return;
+    cancelAnimationFrame(focusHandle);
+    focusHandle = requestAnimationFrame(() => ensureFieldVisible(field));
+    setTimeout(() => {
+      if (document.activeElement === field) ensureFieldVisible(field);
+    }, 260);
+  }, true);
+  window.visualViewport?.addEventListener('resize', () => {
+    if (locked) {
+      syncViewport();
+      if (document.activeElement?.closest?.('.modal')) ensureFieldVisible(document.activeElement);
+    }
+  });
+  window.visualViewport?.addEventListener('scroll', () => { if(locked) syncViewport(); });
+  window.addEventListener('resize', () => { if(locked) syncViewport(); });
+  syncModal();
+})();
+</script>
 </body>
 </html>
