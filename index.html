@@ -133,7 +133,17 @@ body.admin-mode .photo-status-actions{display:flex}
 }
 @media(max-width:375px){.contact-card{grid-template-columns:75px minmax(0,1fr)}.contact-photo{width:75px;height:84px}.contact-actions .btn{font-size:11px;padding:8px}.brand p{font-size:10px}}
 
-  </style>
+  
+/* Online sync indicator and cleaner mobile controls */
+.online-status{display:flex;align-items:center;gap:9px;background:#eff6ff;color:#194fbf;border:1px solid #bfdbfe;padding:12px 14px;border-radius:16px;margin:0 0 17px;font-size:13px;line-height:1.6;font-weight:700}
+.status-indicator{width:10px;height:10px;border-radius:99px;background:#94a3b8;flex-shrink:0}
+.online-status.ok{background:#ecfdf5;border-color:#86efac;color:#166534}
+.online-status.ok .status-indicator{background:#22c55e}
+.online-status.error{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
+.online-status.error .status-indicator{background:#fb7185}
+.online-status.waiting .status-indicator{background:#eab308}
+@media(max-width:800px){.contact-photo{width:92px;height:92px;max-height:92px!important;min-height:92px!important}.contact-card{grid-template-columns:92px minmax(0,1fr)!important}.online-status{font-size:12px}.photo-status{font-size:12px}.contacts-grid{grid-template-columns:1fr}}
+</style>
 
   <style id="admin-login-fix-style">
     .admin-password-field{display:flex;align-items:center;gap:8px;min-width:0}
@@ -362,7 +372,7 @@ body.admin-mode .photo-status-actions{display:flex}
         <div class="section-head">
           <div>
             <h3>Kontak Perangkat Dusun</h3>
-            <p>Foto kontak hanya dapat diunggah oleh admin. Setelah diunggah, foto tetap terlihat meskipun admin keluar. Agar terlihat di HP lain, admin perlu memublikasikan HTML dengan foto terbaru ke GitHub.</p>
+            <p>Foto dan informasi dari Firebase dapat dilihat semua warga, meskipun admin keluar. Admin terverifikasi yang dapat mengunggah/mengubah foto.</p>
           </div>
           <div class="section-head-actions"><button class="btn btn-primary admin-only" onclick="openContactEditor()">＋ Tambah Kontak</button><button class="btn btn-soft admin-only" onclick="downloadCurrentHtml()">⬇ Publikasikan / Unduh HTML</button></div>
         </div>
@@ -373,12 +383,17 @@ body.admin-mode .photo-status-actions{display:flex}
               <small id="photoStatusDetails">Foto yang belum tersedia perlu diunggah oleh admin.</small>
             </div>
             <div class="photo-status-actions">
+              <button type="button" class="btn btn-soft" onclick="importLocalPhotosIntoFirebase()">Ambil Foto Lama dari Browser Ini</button>
               <button type="button" class="btn btn-soft" onclick="document.getElementById('restoreOldHtml').click()">Pulihkan Foto dari HTML Lama</button>
-              <button type="button" class="btn btn-primary" onclick="downloadCurrentHtml()">Unduh HTML + Foto</button>
+              <button type="button" class="btn btn-primary" onclick="downloadCurrentHtml()">Cadangkan HTML</button>
               <input id="restoreOldHtml" type="file" hidden accept=".html,text/html" onchange="restoreOldHtmlPhotos(this)">
             </div>
           </div>
-          <div class="contacts-grid" id="contactsGrid"></div>
+          <div class="online-status" id="firebaseStatus" role="status" aria-live="polite">
+              <span class="status-indicator" id="firebaseStatusDot"></span>
+              <span id="firebaseStatusText">Menghubungkan database online ...</span>
+            </div>
+            <div class="contacts-grid" id="contactsGrid"></div>
         </div>
       </div>
     </section>
@@ -455,15 +470,15 @@ body.admin-mode .photo-status-actions{display:flex}
     <div class="modal modal-sm">
       <div class="modal-head"><div><h4>Masuk Admin</h4><div class="muted">Khusus pengelola SI-TENGORO: foto, logo, kontak, galeri, dan berita.</div><p class="small-info" id="loginError" aria-live="polite"></p></div><button class="modal-close" onclick="closeAdminModal()">✕</button></div>
       <form id="adminLoginForm" onsubmit="submitAdminLogin(event)" autocomplete="off">
-        <div class="field" style="margin-bottom:12px"><label for="adminUser">Username / Email Admin</label><input id="adminUser" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Username atau email admin"></div>
+        <div class="field" style="margin-bottom:12px"><label for="adminUser">Email Admin Firebase</label><input id="adminUser" type="email" autocomplete="username" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Email yang sudah terdaftar di Firebase"></div>
         <div class="field" style="margin-bottom:10px">
-          <label for="adminPass">PIN Admin</label>
+          <label for="adminPass">Password Admin Firebase</label>
           <div class="admin-password-field">
-            <input id="adminPass" required type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" placeholder="Masukkan PIN admin 4 angka" aria-describedby="adminPinHelp">
-            <button id="adminPinVisibility" class="admin-eye-btn" type="button" aria-label="Lihat PIN" aria-pressed="false" onclick="toggleAdminPasswordVisibility()">Lihat</button>
+            <input id="adminPass" required type="password" minlength="6" autocomplete="current-password" placeholder="Masukkan password Firebase" aria-describedby="adminPinHelp">
+            <button id="adminPinVisibility" class="admin-eye-btn" type="button" aria-label="Lihat password" aria-pressed="false" onclick="toggleAdminPasswordVisibility()">Lihat</button>
           </div>
         </div>
-        <p id="adminPinHelp" class="small-info" style="margin:2px 0 14px;color:#63758e">Gunakan PIN 4 angka yang telah ditetapkan sebelumnya. Kolom selalu dikosongkan setiap membuka login.</p>
+        <p id="adminPinHelp" class="small-info" style="margin:2px 0 14px;color:#63758e">Gunakan password Firebase yang telah ditetapkan sebelumnya. Kolom selalu dikosongkan setiap membuka login.</p>
         <button class="btn btn-primary" type="submit" style="width:100%">Masuk</button>
       </form>
     </div>
@@ -515,21 +530,30 @@ body.admin-mode .photo-status-actions{display:flex}
 
   <div id="toast" class="toast"></div>
   <input id="hiddenImageInput" class="upload-input" type="file" accept="image/jpeg,image/png,image/webp">
+  <script src="firebase-config.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script id="embedded-state" type="application/json">{"images":{"hero":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%201600%20900%27%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20x2%3D%271%27%20y1%3D%270%27%20y2%3D%271%27%3E%3Cstop%20stop-color%3D%27%23dbeafe%27/%3E%3Cstop%20offset%3D%270.45%27%20stop-color%3D%27%2393c5fd%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%232563eb%27/%3E%3C/linearGradient%3E%3C/defs%3E%0A%3Crect%20width%3D%271600%27%20height%3D%27900%27%20fill%3D%27url%28%23g%29%27/%3E%0A%3Ccircle%20cx%3D%271200%27%20cy%3D%27150%27%20r%3D%2760%27%20fill%3D%27%23f59e0b%27%20opacity%3D%270.9%27/%3E%0A%3Ccircle%20cx%3D%271300%27%20cy%3D%27210%27%20r%3D%2735%27%20fill%3D%27%23fb923c%27%20opacity%3D%270.9%27/%3E%0A%3Cpath%20d%3D%27M0%20560%20C180%20480%20320%20500%20520%20560%20C760%20630%20940%20540%201120%20560%20C1340%20590%201450%20530%201600%20500%20L1600%20900%20L0%20900%20Z%27%20fill%3D%27%230b6bd3%27/%3E%0A%3Cpath%20d%3D%27M0%20600%20C180%20540%20330%20540%20540%20610%20C730%20675%20930%20620%201130%20620%20C1310%20620%201450%20580%201600%20560%20L1600%20900%20L0%20900%20Z%27%20fill%3D%27%230f4fb0%27/%3E%0A%3Cpath%20d%3D%27M910%20190%20L1080%20540%20L740%20540%20Z%27%20fill%3D%27%23dbeafe%27/%3E%0A%3Cpath%20d%3D%27M1080%20200%20L1300%20560%20L860%20560%20Z%27%20fill%3D%27%23bfdbfe%27/%3E%0A%3Cpath%20d%3D%27M1170%20270%20L1440%20610%20L980%20610%20Z%27%20fill%3D%27%2393c5fd%27/%3E%0A%3Crect%20x%3D%270%27%20y%3D%27610%27%20width%3D%271600%27%20height%3D%27290%27%20fill%3D%27%231d4ed8%27/%3E%0A%3Cpath%20d%3D%27M960%20650%20C1010%20600%201080%20580%201140%20620%20C1210%20660%201230%20720%201270%20770%20C1220%20790%201170%20810%201110%20820%20C1010%20835%20920%20810%20860%20760%20C900%20730%20930%20690%20960%20650%20Z%27%20fill%3D%27%230ea5e9%27/%3E%0A%3Cpath%20d%3D%27M1170%20470%20q35%2015%2055%2050%20q-18%2012%20-36%2012%20q-48%200%20-64%20-39%20q10%20-17%2045%20-23%20Z%27%20fill%3D%27%23f59e0b%27/%3E%0A%3Ccircle%20cx%3D%271185%27%20cy%3D%27447%27%20r%3D%2724%27%20fill%3D%27%23fbbf24%27/%3E%0A%3Cpath%20d%3D%27M1140%20500%20q60%200%2080%2062%20q-24%2042%20-60%2054%20q-42%20-38%20-65%20-90%20q14%20-17%2045%20-26%20Z%27%20fill%3D%27%2392400e%27/%3E%0A%3Cpath%20d%3D%27M1112%20493%20q13%2095%207%20152%27%20stroke%3D%27%237c2d12%27%20stroke-width%3D%2716%27%20stroke-linecap%3D%27round%27/%3E%0A%3Cpath%20d%3D%27M1072%20562%20q78%2013%20148%2097%27%20stroke%3D%27%23ca8a04%27%20stroke-width%3D%2734%27%20stroke-linecap%3D%27round%27/%3E%0A%3Cpath%20d%3D%27M1022%20730%20q118%20-26%20208%2043%27%20stroke%3D%27%231f2937%27%20stroke-width%3D%2724%27%20stroke-linecap%3D%27round%27%20opacity%3D%270.8%27/%3E%0A%3C/svg%3E","layanan1":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27a%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%2360a5fa%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%231d4ed8%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23a%29%27/%3E%3Ccircle%20cx%3D%27680%27%20cy%3D%2790%27%20r%3D%2762%27%20fill%3D%27%23fbbf24%27/%3E%3Crect%20x%3D%2770%27%20y%3D%27120%27%20width%3D%27300%27%20height%3D%27200%27%20rx%3D%2726%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.93%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27170%27%20width%3D%27200%27%20height%3D%2724%27%20rx%3D%2712%27%20fill%3D%27%231d4ed8%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27215%27%20width%3D%27160%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%2393c5fd%27/%3E%3Crect%20x%3D%27120%27%20y%3D%27250%27%20width%3D%27110%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23bfdbfe%27/%3E%3Cpath%20d%3D%27M470%20350%20q80%20-150%20210%20-120%20q15%20100%20-70%20150%20q-80%2048%20-140%20-30%20Z%27%20fill%3D%27%23bbf7d0%27/%3E%3Cpath%20d%3D%27M520%20160%20l120%20220%27%20stroke%3D%27%2378350f%27%20stroke-width%3D%2716%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E","layanan2":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27b%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%2322c55e%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%2316a34a%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23b%29%27/%3E%3Crect%20x%3D%2780%27%20y%3D%27280%27%20width%3D%27640%27%20height%3D%27130%27%20rx%3D%2724%27%20fill%3D%27%23f0fdf4%27/%3E%3Crect%20x%3D%27140%27%20y%3D%27180%27%20width%3D%27210%27%20height%3D%27120%27%20rx%3D%2720%27%20fill%3D%27%23dcfce7%27/%3E%3Crect%20x%3D%27370%27%20y%3D%27140%27%20width%3D%27240%27%20height%3D%27160%27%20rx%3D%2724%27%20fill%3D%27%23ffffff%27/%3E%3Cpath%20d%3D%27M150%20390%20h500%27%20stroke%3D%27%2315803d%27%20stroke-width%3D%2714%27%20stroke-linecap%3D%27round%27/%3E%3Ccircle%20cx%3D%27160%27%20cy%3D%27390%27%20r%3D%2716%27%20fill%3D%27%23166534%27/%3E%3Ccircle%20cx%3D%27660%27%20cy%3D%27390%27%20r%3D%2716%27%20fill%3D%27%23166534%27/%3E%3C/svg%3E","layanan3":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27c%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%23f59e0b%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23ef4444%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23c%29%27/%3E%3Crect%20x%3D%27100%27%20y%3D%2790%27%20width%3D%27260%27%20height%3D%27320%27%20rx%3D%2728%27%20fill%3D%27%23fff7ed%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27145%27%20width%3D%27190%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23f59e0b%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27188%27%20width%3D%27150%27%20height%3D%2718%27%20rx%3D%279%27%20fill%3D%27%23fdba74%27/%3E%3Crect%20x%3D%27135%27%20y%3D%27228%27%20width%3D%27170%27%20height%3D%2718%27%20rx%3D%279%27%20fill%3D%27%23fed7aa%27/%3E%3Cpath%20d%3D%27M500%20110%20q90%2035%20110%20145%20q-8%2093%20-104%20135%20q-71%20-22%20-114%20-72%20q26%20-108%20108%20-208%20Z%27%20fill%3D%27%23ffedd5%27/%3E%3Cpath%20d%3D%27M454%20354%20q98%20-23%20166%2010%27%20stroke%3D%27%237c2d12%27%20stroke-width%3D%2718%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E","promo":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27d%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%231d4ed8%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%230ea5e9%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23d%29%27/%3E%3Ccircle%20cx%3D%27190%27%20cy%3D%27370%27%20r%3D%27120%27%20fill%3D%27%2393c5fd%27/%3E%3Cpath%20d%3D%27M170%20200%20l70%2030%20-50%2030%2090%2020%20-70%2045%2025%2050%20-100%20-70%2035%20-45%20-70%20-25%2065%20-35%20-25%20-45%2030%20-10%20Z%27%20fill%3D%27%23fff%27/%3E%3Crect%20x%3D%27420%27%20y%3D%27110%27%20width%3D%27250%27%20height%3D%27220%27%20rx%3D%2726%27%20fill%3D%27%23eff6ff%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27155%27%20width%3D%27180%27%20height%3D%2724%27%20rx%3D%2712%27%20fill%3D%27%231d4ed8%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27205%27%20width%3D%27150%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%2360a5fa%27/%3E%3Crect%20x%3D%27455%27%20y%3D%27245%27%20width%3D%27110%27%20height%3D%2720%27%20rx%3D%2710%27%20fill%3D%27%23bfdbfe%27/%3E%3C/svg%3E","newsletter":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20800%20500%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27e%27%20x1%3D%270%27%20x2%3D%271%27%3E%3Cstop%20stop-color%3D%27%232563eb%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%237c3aed%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27800%27%20height%3D%27500%27%20fill%3D%27url%28%23e%29%27/%3E%3Crect%20x%3D%27110%27%20y%3D%27115%27%20width%3D%27580%27%20height%3D%27260%27%20rx%3D%2734%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.18%27/%3E%3Crect%20x%3D%27160%27%20y%3D%27180%27%20width%3D%27330%27%20height%3D%2744%27%20rx%3D%2722%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.9%27/%3E%3Cpath%20d%3D%27M534%20180%20h86%20a24%2024%200%200%201%2024%2024%20v0%20a24%2024%200%200%201%20-24%2024%20h-86%20z%27%20fill%3D%27%2322c55e%27/%3E%3Cpath%20d%3D%27M590%20133%20c40%200%2072%2032%2072%2072%27%20stroke%3D%27%23fef3c7%27%20stroke-width%3D%2710%27%20stroke-linecap%3D%27round%27/%3E%3Cpath%20d%3D%27M594%2086%20c66%200%20120%2054%20120%20120%27%20stroke%3D%27%23fde68a%27%20stroke-width%3D%2710%27%20stroke-linecap%3D%27round%27%20opacity%3D%270.7%27/%3E%3C/svg%3E","logo":"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%23dbeafe%22/%3E%3Cpath%20d%3D%22M16%2045L50%2016l34%2029%22%20fill%3D%22none%22%20stroke%3D%22%231d4ed8%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M25%2040v46h19V63h12v23h19V40%22%20fill%3D%22%23facc15%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%225%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E"},"contactPhotos":{},"site":{"headline":"Jelajahi Layanan Dusun, Mudahkan Urusan Warga","subheadline":"SI-TENGORO membantu warga Dusun Tengororejo mengurus administrasi, menyampaikan aspirasi, dan terhubung langsung dengan perangkat lingkungan.","promoTitle":"Info Cepat Minggu Ini","promoText":"Gunakan layanan online untuk pengajuan surat, laporan, dan koordinasi warga tanpa harus bingung mencari kontak."},"gallery":[],"news":[],"contacts":[{"id":"kades","category":"pimpinan","role":"KEPALA DESA SONGGON","shortRole":"Kepala Desa","name":"BAPAK MOH. QODERI, SH.","phoneDisplay":"+6281217666300","phoneWA":"6281217666300","wilayah":"Pemerintah Desa Songgon, Kec. Songgon"},{"id":"kasun","category":"pimpinan","role":"KEPALA DUSUN TENGOROREJO","shortRole":"Kepala Dusun","name":"BAPAK EKO MARIYANTO","phoneDisplay":"+6282220221046","phoneWA":"6282220221046","wilayah":"Dusun Tengororejo, Ds. Songgon"},{"id":"rw01","category":"rw","role":"KETUA RW 01","shortRole":"Ketua RW 01","name":"BAPAK WASIS","phoneDisplay":"+6282301524442","phoneWA":"6282301524442","wilayah":"Wilayah RW 01 - Dusun Tengororejo"},{"id":"rw02","category":"rw","role":"KETUA RW 02","shortRole":"Ketua RW 02","name":"BAPAK MOH HARIYANTO","phoneDisplay":"+6282331517898","phoneWA":"6282331517898","wilayah":"Wilayah RW 02 - Dusun Tengororejo"},{"id":"rt01_rw01","category":"rt","role":"KETUA RT 01 / RW 01","shortRole":"RT 01 RW 01","name":"BAPAK PONIMAN","phoneDisplay":"+6281515320529","phoneWA":"6281515320529","wilayah":"Lingkungan RT 01 / RW 01 - Tengororejo"},{"id":"rt02_rw01","category":"rt","role":"KETUA RT 02 / RW 01","shortRole":"RT 02 RW 01","name":"BAPAK BAMBANG MARIYONO","phoneDisplay":"+6281455124470","phoneWA":"6281455124470","wilayah":"Lingkungan RT 02 / RW 01 - Tengororejo"},{"id":"rt01_rw02","category":"rt","role":"KETUA RT 01 / RW 02","shortRole":"RT 01 RW 02","name":"BAPAK SUGIYONO","phoneDisplay":"+6285141675877","phoneWA":"6285141675877","wilayah":"Lingkungan RT 01 / RW 02 - Tengororejo"},{"id":"rt02_rw02","category":"rt","role":"KETUA RT 02 / RW 02","shortRole":"RT 02 RW 02","name":"BAPAK HARIYANTO","phoneDisplay":"+6282334206512","phoneWA":"6282334206512","wilayah":"Lingkungan RT 02 / RW 02 - Tengororejo"},{"id":"rt03_rw02","category":"rt","role":"KETUA RT 03 / RW 02","shortRole":"RT 03 RW 02","name":"BAPAK EKO SATRIYO","phoneDisplay":"+6282338936036","phoneWA":"6282338936036","wilayah":"Lingkungan RT 03 / RW 02 - Tengororejo"},{"id":"linmas1","category":"linmas","role":"LINMAS 1 TENGOROREJO","shortRole":"Linmas 1","name":"BAPAK MARIYONO","phoneDisplay":"+6285762469867","phoneWA":"6285762469867","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"},{"id":"linmas2","category":"linmas","role":"LINMAS 2 TENGOROREJO","shortRole":"Linmas 2","name":"BAPAK SUNARWO","phoneDisplay":"+6285812811033","phoneWA":"6285812811033","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"}],"updatedAt":1}</script>
   <script>
     const DEFAULT_CONTACTS = [{"id":"kades","category":"pimpinan","role":"KEPALA DESA SONGGON","shortRole":"Kepala Desa","name":"BAPAK MOH. QODERI, SH.","phoneDisplay":"+6281217666300","phoneWA":"6281217666300","wilayah":"Pemerintah Desa Songgon, Kec. Songgon"},{"id":"kasun","category":"pimpinan","role":"KEPALA DUSUN TENGOROREJO","shortRole":"Kepala Dusun","name":"BAPAK EKO MARIYANTO","phoneDisplay":"+6282220221046","phoneWA":"6282220221046","wilayah":"Dusun Tengororejo, Ds. Songgon"},{"id":"rw01","category":"rw","role":"KETUA RW 01","shortRole":"Ketua RW 01","name":"BAPAK WASIS","phoneDisplay":"+6282301524442","phoneWA":"6282301524442","wilayah":"Wilayah RW 01 - Dusun Tengororejo"},{"id":"rw02","category":"rw","role":"KETUA RW 02","shortRole":"Ketua RW 02","name":"BAPAK MOH HARIYANTO","phoneDisplay":"+6282331517898","phoneWA":"6282331517898","wilayah":"Wilayah RW 02 - Dusun Tengororejo"},{"id":"rt01_rw01","category":"rt","role":"KETUA RT 01 / RW 01","shortRole":"RT 01 RW 01","name":"BAPAK PONIMAN","phoneDisplay":"+6281515320529","phoneWA":"6281515320529","wilayah":"Lingkungan RT 01 / RW 01 - Tengororejo"},{"id":"rt02_rw01","category":"rt","role":"KETUA RT 02 / RW 01","shortRole":"RT 02 RW 01","name":"BAPAK BAMBANG MARIYONO","phoneDisplay":"+6281455124470","phoneWA":"6281455124470","wilayah":"Lingkungan RT 02 / RW 01 - Tengororejo"},{"id":"rt01_rw02","category":"rt","role":"KETUA RT 01 / RW 02","shortRole":"RT 01 RW 02","name":"BAPAK SUGIYONO","phoneDisplay":"+6285141675877","phoneWA":"6285141675877","wilayah":"Lingkungan RT 01 / RW 02 - Tengororejo"},{"id":"rt02_rw02","category":"rt","role":"KETUA RT 02 / RW 02","shortRole":"RT 02 RW 02","name":"BAPAK HARIYANTO","phoneDisplay":"+6282334206512","phoneWA":"6282334206512","wilayah":"Lingkungan RT 02 / RW 02 - Tengororejo"},{"id":"rt03_rw02","category":"rt","role":"KETUA RT 03 / RW 02","shortRole":"RT 03 RW 02","name":"BAPAK EKO SATRIYO","phoneDisplay":"+6282338936036","phoneWA":"6282338936036","wilayah":"Lingkungan RT 03 / RW 02 - Tengororejo"},{"id":"linmas1","category":"linmas","role":"LINMAS 1 TENGOROREJO","shortRole":"Linmas 1","name":"BAPAK MARIYONO","phoneDisplay":"+6285762469867","phoneWA":"6285762469867","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"},{"id":"linmas2","category":"linmas","role":"LINMAS 2 TENGOROREJO","shortRole":"Linmas 2","name":"BAPAK SUNARWO","phoneDisplay":"+6285812811033","phoneWA":"6285812811033","wilayah":"Pertahanan Sipil & Keamanan Dusun Tengororejo"}];
     const SERVICES = [{"id":"kk","title":"Pengurusan Kartu Keluarga (KK)","short":"Layanan KK","desc":"Pengantar pembuatan KK baru, pecah KK, perubahan data, dan tambah anggota keluarga.","badge":"Administrasi Keluarga","accent":"#1d4ed8","icon":"👨‍👩‍👧‍👦","requirements":["Pengantar RT/RW atau Kepala Dusun","KK lama / asli","Fotokopi KTP-el pemohon & Buku Nikah","Surat pindah/lahir bila ada"],"specific":[{"id":"jenis","label":"Jenis Keperluan KK","type":"select","options":["Pembuatan KK Baru","Pecah KK","Perubahan Data","Tambah Anggota"],"required":true},{"id":"kepala","label":"Nama Kepala Keluarga","type":"text","placeholder":"Contoh: Bapak Ahmad","required":true}]},{"id":"kelahiran","title":"Pengurusan Akta Kelahiran","short":"Akta Kelahiran","desc":"Pelaporan bayi lahir dan pengantar dokumen akta kelahiran untuk warga.","badge":"Pencatatan Sipil","accent":"#7c3aed","icon":"👶","requirements":["Surat keterangan lahir","Fotokopi KK & KTP orang tua","Fotokopi buku nikah","Data 2 orang saksi"],"specific":[{"id":"anak","label":"Nama Lengkap Anak / Bayi","type":"text","placeholder":"Masukkan nama anak","required":true},{"id":"ttl","label":"Tanggal Lahir","type":"date","required":true},{"id":"ortu","label":"Nama Orang Tua","type":"text","placeholder":"Ayah & Ibu","required":true}]},{"id":"kematian","title":"Pelaporan & Akta Kematian","short":"Akta Kematian","desc":"Laporan warga meninggal dan pengantar pengurusan akta kematian.","badge":"Layanan Duka","accent":"#dc2626","icon":"🕊️","requirements":["Pengantar RT/RW atau Kasun","KK & KTP almarhum/almarhumah","Surat keterangan kematian","Fotokopi KTP pelapor"],"specific":[{"id":"nama","label":"Nama Almarhum / Almarhumah","type":"text","placeholder":"Nama lengkap warga","required":true},{"id":"waktu","label":"Tanggal / Waktu Wafat","type":"text","placeholder":"Contoh: 7 Nov 2026, 19.00 WIB","required":true},{"id":"pelapor","label":"Nama Pelapor / Ahli Waris","type":"text","placeholder":"Nama pelapor","required":true}]},{"id":"usaha","title":"Surat Ijin Usaha / Pengantar SKU","short":"Surat Usaha","desc":"Pengantar SKU untuk perdagangan, pertanian, peternakan, warung, dan UMKM warga.","badge":"Ekonomi & UMKM","accent":"#059669","icon":"🏪","requirements":["Fotokopi KTP pemohon","Data usaha dan alamat usaha","Keterangan lama usaha","Keperluan pembuatan SKU"],"specific":[{"id":"usaha","label":"Nama / Jenis Usaha","type":"text","placeholder":"Contoh: Warung sembako","required":true},{"id":"lama","label":"Lama Usaha","type":"text","placeholder":"Contoh: 2 tahun","required":true},{"id":"tujuan","label":"Keperluan SKU","type":"text","placeholder":"Contoh: Pengajuan pinjaman / administrasi","required":true}]},{"id":"keramaian","title":"Surat Pengantar Ijin Keramaian","short":"Ijin Keramaian","desc":"Pengantar untuk hajatan, pengajian, hiburan, turnamen, dan kegiatan warga.","badge":"Hajatan & Kegiatan","accent":"#f59e0b","icon":"🎉","requirements":["Koordinasi RT/RW, Kasun, dan Linmas","Fotokopi KTP penanggung jawab","Jadwal acara dan lokasi","Komitmen menjaga ketertiban lingkungan"],"specific":[{"id":"acara","label":"Jenis Acara / Hajatan","type":"text","placeholder":"Contoh: Resepsi Pernikahan","required":true},{"id":"jadwal","label":"Hari & Tanggal Acara","type":"text","placeholder":"Contoh: Minggu, 10 Nov 2026","required":true},{"id":"lokasi","label":"Lokasi Acara","type":"text","placeholder":"Alamat acara","required":true}]}];
     const STORAGE_KEY = 'si_tengoro_travel_state_v1';
     const HISTORY_KEY = 'si_tengoro_travel_history_v1';
-    // Passwords are represented as hashes, not displayed or stored as plaintext.
-    // This is only a browser UI gate, not secure server-side authentication.
-    const ADMIN_NAMES = new Set(['7529c0c2cd5aab652d47dd037bb9e66bc4829f77e6feb83c6fbcc3ca93c59a4e', '89f8f22064ff6071ea1124a95680a66813a5cda1bb38bba88a0b2bc7ff2abf66']);
-    const ADMIN_PASSWORD_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
     let CONTACTS = [];
     let isAdmin = false;
     let currentServiceId = null;
     let siteState = loadState();
     CONTACTS = siteState.contacts;
+    const ONLINE_CACHE_KEY='si_tengoro_public_online_cache_v1';
+    let firebaseApp=null,auth=null,db=null,liveReady=false,liveConnected=false,liveError=false;
+    let publicDocReady=false,mediaCollectionReady=false;
+    let serverMeta=null,serverMedia={};
+    let publishedMedia={};
+    let publishQueue=Promise.resolve(),pendingPublishes=0;
+    let remoteGuard=false;
+    const embeddedBase=JSON.parse(document.getElementById('embedded-state').textContent||'{}');
+
 
 
     let recoveredLegacyCount = 0;
@@ -547,15 +571,15 @@ body.admin-mode .photo-status-actions{display:flex}
       return recovered;
     }
     function updatePhotoStatus(){
-      const count = CONTACTS.filter(c=>!!siteState.contactPhotos[c.id]).length;
-      const missing = CONTACTS.length-count;
-      const title = document.getElementById('photoStatusTitle');
-      const details = document.getElementById('photoStatusDetails');
-      if(!title || !details) return;
-      title.textContent = `${count} dari ${CONTACTS.length} kontak sudah memiliki foto`;
-      details.textContent = missing ? `Masih ada ${missing} kontak tanpa foto. Admin dapat mengunggah foto asli, atau memulihkan foto dari file HTML lama yang pernah diekspor. ` +
-       'Sesudahnya, unduh HTML + Foto dan perbarui index.html di GitHub agar semua HP melihat hasilnya.' :
-       'Semua kontak sudah memiliki foto. Unduh HTML + Foto dan perbarui index.html di GitHub agar terlihat di semua HP.';
+      const count=CONTACTS.filter(c=>!!siteState.contactPhotos[c.id]).length;
+      const missing=CONTACTS.length-count;
+      const title=document.getElementById('photoStatusTitle');
+      const details=document.getElementById('photoStatusDetails');
+      if(!title||!details)return;
+      title.textContent=`${count} dari ${CONTACTS.length} kontak memiliki foto`;
+      details.textContent=liveReady
+        ? (missing ? `${missing} foto belum diterbitkan. Admin bisa unggah, dan semua warga langsung melihat setelah tersimpan ke Firebase.` : 'Seluruh foto sudah tersedia online dan terlihat oleh warga tanpa login.')
+        : 'Menunggu data foto dari Firebase. Foto lokal bukan foto yang otomatis terlihat oleh warga.';
     }
     async function restoreOldHtmlPhotos(input){
       if(!requireAdmin()) return;
@@ -579,7 +603,7 @@ body.admin-mode .photo-status-actions{display:flex}
         for(const c of CONTACTS){if(result[c.id]){siteState.contactPhotos[c.id]=result[c.id];restored++}}
         if(!restored)throw Error('File ini tidak memuat foto kontak yang dapat dipulihkan.');
         if(!saveState()) throw Error('Memori browser penuh. Kurangi ukuran foto dan coba lagi.');
-        renderContacts();showToast(`${restored} foto dipulihkan. Unduh HTML + Foto untuk diterbitkan.`);
+        renderContacts();showToast(`${restored} foto dipulihkan. Cadangkan HTML untuk diterbitkan.`);
       }catch(err){showToast('Pemulihan gagal: '+err.message)}
       finally{input.value=''}
     }
@@ -601,10 +625,13 @@ body.admin-mode .photo-status-actions{display:flex}
       };
     }
     function saveState(){
-      const previous=siteState.updatedAt;
-      siteState.updatedAt=Math.max(Date.now(), (previous||0)+1);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(siteState)); return true; }
-      catch(e){showToast('Penyimpanan penuh! Foto belum tersimpan permanen. Unduh HTML + Foto agar tidak hilang.');return false;}
+      if(!isAdmin){showToast('Hanya admin Firebase dapat menyimpan perubahan.');return false;}
+      siteState.contacts=CONTACTS;
+      siteState.updatedAt=Math.max(Date.now(),(siteState.updatedAt||0)+1);
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(siteState))}catch(e){}
+      if(!liveReady||!db){showToast('Firebase belum tersambung: perubahan belum tersimpan online.');return false;}
+      queuePublishLive();
+      return true;
     }
     function getHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch(e){return[]}}
     function saveHistoryEntry(entry){const h=getHistory();h.unshift(entry);try{localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,60)))}catch(e){}renderHistory()}
@@ -615,59 +642,64 @@ body.admin-mode .photo-status-actions{display:flex}
     function initials(text){return String(text||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
     function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
     async function sha256(text){if(!crypto?.subtle)throw Error('Buka melalui HTTPS atau browser modern');const bytes=new TextEncoder().encode(text);const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
-    function requireAdmin(){if(!isAdmin){showToast('Fitur ini hanya untuk admin');return false}return true}
+    function requireAdmin(){
+      if(!isAdmin||!liveReady){showToast('Pengelolaan membutuhkan login admin Firebase dan koneksi online.');return false;}
+      return true;
+    }
     function updateAdminPill(){document.getElementById('adminPill').style.display=isAdmin?'inline-flex':'none'}
-    function handleAdminAction(){
+    function setAdminMode(active){
+      isAdmin=!!active;
+      document.body.classList.toggle('admin-mode',isAdmin);
+      document.getElementById('adminActionBtn').textContent=isAdmin?'Keluar Admin':'Masuk Admin';
+      updateAdminPill();renderContacts();renderGallery();renderNews();
+    }
+    async function handleAdminAction(){
       if(isAdmin){
-        isAdmin=false;document.body.classList.remove('admin-mode');
-        document.getElementById('adminActionBtn').textContent='Masuk Admin';
-        resetAdminLoginForm();showToast('Berhasil keluar dari admin');
-        renderContacts();renderGallery();renderNews();
+        try{await auth.signOut();setAdminMode(false);showToast('Berhasil keluar admin. Foto warga tetap terlihat.')}catch(e){showToast('Gagal keluar: '+e.message)}
       }else{
-        resetAdminLoginForm();
-        document.getElementById('adminModalBackdrop').hidden=false;
+        if(!db||!liveReady){showToast('Firebase belum tersambung. Periksa konfigurasi dan aturan Firestore.');return;}
+        resetAdminLoginForm();document.getElementById('adminModalBackdrop').hidden=false;
         document.getElementById('adminUser').focus();
       }
-      updateAdminPill();
     }
     function resetAdminLoginForm(){
       const form=document.getElementById('adminLoginForm');if(form)form.reset();
       document.getElementById('adminPass').value='';
       const visibility=document.getElementById('adminPinVisibility');
       document.getElementById('adminPass').type='password';
-      if(visibility){visibility.textContent='Lihat';visibility.setAttribute('aria-pressed','false');visibility.setAttribute('aria-label','Lihat PIN');}
+      if(visibility){visibility.textContent='Lihat';visibility.setAttribute('aria-pressed','false');visibility.setAttribute('aria-label','Lihat password');}
       document.getElementById('loginError').textContent='';
     }
     function toggleAdminPasswordVisibility(){
       const input=document.getElementById('adminPass');const button=document.getElementById('adminPinVisibility');
       const show=input.type==='password';input.type=show?'text':'password';
       button.textContent=show?'Sembunyikan':'Lihat';button.setAttribute('aria-pressed',String(show));
-      button.setAttribute('aria-label',show?'Sembunyikan PIN':'Lihat PIN');
+      button.setAttribute('aria-label',show?'Sembunyikan password':'Lihat password');
     }
     function closeAdminModal(){document.getElementById('adminModalBackdrop').hidden=true}
     async function submitAdminLogin(e){
       e.preventDefault();
-      const username=document.getElementById('adminUser').value.trim().toLowerCase();
-      const password=document.getElementById('adminPass').value.trim();
       const msg=document.getElementById('loginError');msg.textContent='';
-      if(!/^[0-9]{4}$/.test(password)){
-        msg.textContent='PIN admin harus terdiri dari 4 angka sesuai pengaturan sebelumnya.';
-        document.getElementById('adminPass').focus();return;
-      }
+      const email=document.getElementById('adminUser').value.trim();
+      const password=document.getElementById('adminPass').value;
+      if(!db||!liveReady){msg.textContent='Database online belum aktif. Periksa konfigurasi Firebase.';return;}
       try{
-        const [uh,ph]=await Promise.all([sha256(username),sha256(password)]);
-        if(ADMIN_NAMES.has(uh)&&ph===ADMIN_PASSWORD_HASH){
-          isAdmin=true;document.body.classList.add('admin-mode');closeAdminModal();
-          document.getElementById('adminActionBtn').textContent='Keluar Admin';
-          resetAdminLoginForm();updateAdminPill();renderContacts();renderGallery();renderNews();
-          showToast('Login admin berhasil. Pengelolaan konten aktif.');
+        const session=await auth.signInWithEmailAndPassword(email,password);
+        const adminDoc=await db.collection('siTengoroAdmins').doc(session.user.uid).get({source:'server'});
+        if(adminDoc.exists&&adminDoc.data().active===true){
+          setAdminMode(true);closeAdminModal();resetAdminLoginForm();showToast('Login admin Firebase berhasil');
         }else{
-          msg.textContent='Akun atau PIN belum cocok. Periksa kembali akun admin dan PIN 4 angka yang sebelumnya Anda tetapkan.';
-          document.getElementById('adminPass').value='';
-          document.getElementById('adminPass').focus();
-          showToast('Login belum berhasil');
+          await auth.signOut();setAdminMode(false);
+          msg.textContent='Akun ini bukan admin. Tambahkan dokumen siTengoroAdmins/UID dengan active: true di Firebase Console.';
         }
-      }catch(error){msg.textContent='Login memerlukan situs HTTPS atau browser modern.';}
+      }catch(err){
+        msg.textContent=(err.code==='auth/invalid-credential'||err.code==='auth/wrong-password'||err.code==='auth/user-not-found')
+          ? 'Email atau password Firebase tidak cocok.'
+          : (err.code==='auth/operation-not-allowed' ? 'Aktifkan Email/Password di Firebase Authentication.'
+          : (err.code==='auth/unauthorized-domain' ? 'Tambahkan domain Vercel di Authorized domains Firebase Authentication.'
+          : 'Login gagal: '+(err.code||err.message)));
+        document.getElementById('adminPass').value='';
+      }
     }
     function renderSiteImages(){['logo','hero','layanan1','layanan2','layanan3','newsletter'].forEach(key=>{let el=document.getElementById('img-'+key);if(el)el.src=siteState.images[key]||''});let footer=document.getElementById('img-logo-footer');if(footer)footer.src=siteState.images.logo||'';document.getElementById('heroSubheadline').textContent=siteState.site?.subheadline||''}
     function serviceCardImage(slot){return siteState.images[slot]||siteState.images.hero||''}
@@ -677,10 +709,36 @@ body.admin-mode .photo-status-actions{display:flex}
     function normalisePhone(raw){let n=String(raw).replace(/\D/g,'');if(n.startsWith('0'))n='62'+n.slice(1);return n}
     function renderContacts(){const wrap=document.getElementById('contactsGrid');wrap.innerHTML='';CONTACTS.forEach(c=>{const photo=siteState.contactPhotos[c.id];const card=document.createElement('article');card.className='contact-card searchable-item';card.dataset.kind='contact';card.dataset.search=(c.role+' '+c.shortRole+' '+c.name+' '+c.wilayah+' '+c.phoneDisplay).toLowerCase();const contactText=`Assalamu'alaikum, saya ingin menghubungi ${c.role} atas nama ${c.name}.`;card.innerHTML=`<div><div class="contact-photo">${photo?`<img src="${photo}" alt="Foto ${escapeHtml(c.name)}" loading="lazy" onerror="this.parentElement.innerHTML='Foto gagal dimuat'">`:`<div class="contact-photo-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg><span>Foto belum tersedia</span></div>`}</div></div><div><span class="badge">${escapeHtml(c.role)}</span><h5>${escapeHtml(c.name)}</h5><div class="contact-meta">${escapeHtml(c.wilayah)}<br><strong style="color:#0f172a">${escapeHtml(c.phoneDisplay)}</strong></div><div class="contact-actions"><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="https://wa.me/${normalisePhone(c.phoneWA)}?text=${encodeURIComponent(contactText)}">WhatsApp</a><a class="btn btn-ghost" href="tel:${normalisePhone(c.phoneWA)}">Telepon</a><button class="btn btn-soft" data-copyid="${escapeHtml(c.id)}">Salin Nomor</button></div><div class="upload-row"><button type="button" class="btn btn-soft" data-edit-contact="${escapeHtml(c.id)}">✎ Edit Kontak</button><label class="btn btn-soft" for="upload-${escapeHtml(c.id)}">📷 Unggah / Ganti Foto</label><input id="upload-${escapeHtml(c.id)}" class="upload-input" type="file" accept="image/jpeg,image/png,image/webp" data-upload-contact="${escapeHtml(c.id)}">${photo?`<button type="button" class="btn btn-danger" data-remove-photo="${escapeHtml(c.id)}">Hapus Foto</button>`:''}<button type="button" class="btn btn-danger" data-delete-contact="${escapeHtml(c.id)}">Hapus Kontak</button></div></div>`;wrap.appendChild(card)});document.getElementById('contactTotal').textContent=CONTACTS.length;populateTargetSelects();applySearch();updatePhotoStatus()}
     async function copyText(t){try{await navigator.clipboard.writeText(t);showToast('Nomor disalin')}catch(e){showToast('Nomor belum dapat disalin di browser ini')}}
-    async function imageToData(file,maxDim=1400){if(!file)return null;if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('Pilih JPG, PNG atau WEBP');if(file.size>10*1024*1024)throw Error('Ukuran gambar maksimal 10 MB');return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>{try{const scale=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);resolve(canvas.toDataURL('image/webp',.77))}catch(e){URL.revokeObjectURL(url);reject(e)}};img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Gagal membaca foto'))};img.src=url})}
-    async function pickSiteImage(slot){if(!requireAdmin())return;const input=document.getElementById('hiddenImageInput');input.value='';input.onchange=async()=>{const f=input.files[0];if(!f)return;try{siteState.images[slot]=await imageToData(f,slot==='logo'?650:1600);saveState();renderSiteImages();renderServices();showToast('Gambar berhasil diganti. Publikasikan HTML untuk semua warga.')}catch(e){showToast(e.message)}};input.click()}
-    async function uploadContactPhoto(id,input){if(!requireAdmin())return;const file=input.files[0];if(!file)return;try{siteState.contactPhotos[id]=await imageToData(file,520);const ok=saveState();renderContacts();showToast(ok?'Foto tersimpan di browser. Unduh HTML + Foto untuk semua HP.':'Foto tampil sementara; wajib unduh HTML + Foto karena penyimpanan penuh.')}catch(e){showToast(e.message)}}
-    function removeContactPhoto(id){if(!requireAdmin()||!confirm('Hapus foto kontak ini?'))return;delete siteState.contactPhotos[id];saveState();renderContacts();showToast('Foto kontak dihapus')}
+    async function imageToData(file,maxDim=1200){
+      if(!file)return null;
+      if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('Pilih JPG, PNG, atau WEBP');
+      if(file.size>10*1024*1024)throw Error('Berkas maksimal 10 MB sebelum kompresi');
+      return new Promise((resolve,reject)=>{
+        const url=URL.createObjectURL(file),img=new Image();
+        img.onload=()=>{
+          try{
+            let dim=Math.min(maxDim,1100);let quality=.77,output='';
+            for(let attempt=0;attempt<7;attempt++){
+              const scale=Math.min(1,dim/Math.max(img.naturalWidth,img.naturalHeight));
+              const canvas=document.createElement('canvas');
+              canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
+              canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+              canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+              output=canvas.toDataURL('image/webp',quality);
+              if(output.length<520000)break;
+              dim=Math.round(dim*.82);quality=Math.max(.45,quality-.07);
+            }
+            URL.revokeObjectURL(url);
+            if(output.length>550000)throw Error('Foto masih terlalu besar sesudah kompresi. Pilih foto lain.');
+            resolve(output);
+          }catch(err){URL.revokeObjectURL(url);reject(err)}
+        };
+        img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Gambar tidak bisa dibaca'))};img.src=url;
+      });
+    }
+    async function pickSiteImage(slot){if(!requireAdmin())return;const input=document.getElementById('hiddenImageInput');input.value='';input.onchange=async()=>{const f=input.files[0];if(!f)return;try{siteState.images[slot]=await imageToData(f,slot==='logo'?650:1600);saveState();renderSiteImages();renderServices();showToast('Mengirim gambar ke Firebase...')}catch(e){showToast(e.message)}};input.click()}
+    async function uploadContactPhoto(id,input){if(!requireAdmin())return;const file=input.files[0];if(!file)return;try{siteState.contactPhotos[id]=await imageToData(file,520);const ok=saveState();renderContacts();showToast(ok?'Mengirim foto kontak ke Firebase...':'Foto belum tersimpan online.')}catch(e){showToast(e.message)}}
+    function removeContactPhoto(id){if(!requireAdmin()||!confirm('Hapus foto kontak ini?'))return;delete siteState.contactPhotos[id];saveState();renderContacts();showToast('Menghapus foto dari Firebase...')}
     function makeId(prefix){return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
     function closeEditModal(id){document.getElementById(id).hidden=true}
     function openContactEditor(id){if(!requireAdmin())return;document.getElementById('contactEditorForm').reset();const c=CONTACTS.find(x=>x.id===id);document.getElementById('contactEditId').value=c?.id||'';document.getElementById('contactEditorTitle').textContent=c?'Edit Kontak':'Tambah Kontak Baru';document.getElementById('contactEditName').value=c?.name||'';document.getElementById('contactEditRole').value=c?.role||'';document.getElementById('contactEditPhone').value=c?.phoneDisplay||'';document.getElementById('contactEditArea').value=c?.wilayah||'';document.getElementById('contactEditCategory').value=c?.category||'lainnya';document.getElementById('contactPhotoLabel').textContent=c&&siteState.contactPhotos[c.id]?'Foto saat ini tersedia':'Pilih file foto (opsional)';document.getElementById('contactEditorBackdrop').hidden=false}
@@ -689,11 +747,11 @@ body.admin-mode .photo-status-actions{display:flex}
     function prettyDate(date){if(!date)return 'Tanggal belum diisi';try{return new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'long',year:'numeric'}).format(new Date(date+'T12:00:00'))}catch(e){return date}}
     function renderGallery(){const wrap=document.getElementById('galleryGrid');if(!siteState.gallery.length){wrap.innerHTML='<div class="empty-gallery">📷<strong>Belum ada dokumentasi kegiatan</strong>Foto kerja bakti, rapat, atau acara warga dapat ditambahkan oleh admin.<div class="gallery-controls" style="justify-content:center"><button class="btn btn-primary admin-only" onclick="openGalleryEditor()">＋ Unggah Foto Pertama</button></div></div>';return}wrap.innerHTML='';siteState.gallery.forEach(item=>{const card=document.createElement('article');card.className='gallery-card';card.innerHTML=`<div class="gallery-media"><img src="${item.photo}" alt="${escapeHtml(item.title)}"></div><div class="gallery-details"><div class="gallery-date">📅 ${escapeHtml(prettyDate(item.date))}</div><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description)}</p><div class="gallery-controls"><button type="button" class="btn btn-soft admin-only" data-edit-gallery="${escapeHtml(item.id)}">✎ Edit / Ganti Foto</button><button type="button" class="btn btn-danger admin-only" data-delete-gallery="${escapeHtml(item.id)}">Hapus</button></div></div>`;wrap.appendChild(card)})}
     function openGalleryEditor(id){if(!requireAdmin())return;document.getElementById('galleryEditorForm').reset();const item=siteState.gallery.find(x=>x.id===id);document.getElementById('galleryEditId').value=item?.id||'';document.getElementById('galleryEditorTitle').textContent=item?'Edit Foto Kegiatan':'Tambah Foto Kegiatan';document.getElementById('galleryEditTitle').value=item?.title||'';document.getElementById('galleryEditDate').value=item?.date||'';document.getElementById('galleryEditDesc').value=item?.description||'';document.getElementById('galleryEditPhoto').required=!item;document.getElementById('galleryEditorBackdrop').hidden=false}
-    async function saveGalleryEditor(e){e.preventDefault();if(!requireAdmin())return;const id=document.getElementById('galleryEditId').value||makeId('gallery');const old=siteState.gallery.find(x=>x.id===id);const file=document.getElementById('galleryEditPhoto').files[0];let photo=old?.photo||null;if(file){try{photo=await imageToData(file,1400)}catch(err){return showToast(err.message)}}if(!photo)return showToast('Pilih foto kegiatan');const updated={id,title:document.getElementById('galleryEditTitle').value.trim(),date:document.getElementById('galleryEditDate').value,description:document.getElementById('galleryEditDesc').value.trim(),photo};if(old)Object.assign(old,updated);else siteState.gallery.unshift(updated);saveState();closeEditModal('galleryEditorBackdrop');renderGallery();showToast('Foto kegiatan disimpan')}
+    async function saveGalleryEditor(e){e.preventDefault();if(!requireAdmin())return;const id=document.getElementById('galleryEditId').value||makeId('gallery');const old=siteState.gallery.find(x=>x.id===id);const file=document.getElementById('galleryEditPhoto').files[0];let photo=old?.photo||null;if(file){try{photo=await imageToData(file,1400)}catch(err){return showToast(err.message)}}if(!photo)return showToast('Pilih foto kegiatan');const updated={id,title:document.getElementById('galleryEditTitle').value.trim(),date:document.getElementById('galleryEditDate').value,description:document.getElementById('galleryEditDesc').value.trim(),photo};if(old)Object.assign(old,updated);else siteState.gallery.unshift(updated);saveState();closeEditModal('galleryEditorBackdrop');renderGallery();showToast('Menyimpan kegiatan ke Firebase...')}
     function deleteGallery(id){if(!requireAdmin()||!confirm('Hapus dokumentasi kegiatan ini?'))return;siteState.gallery=siteState.gallery.filter(x=>x.id!==id);saveState();renderGallery();showToast('Foto kegiatan dihapus')}
     function renderNews(){const wrap=document.getElementById('newsGrid');if(!siteState.news.length){wrap.innerHTML='<div class="empty-gallery">📰<strong>Belum ada berita yang diterbitkan</strong>Admin dapat menulis pengumuman atau berita kegiatan warga di sini.<div class="gallery-controls" style="justify-content:center"><button class="btn btn-primary admin-only" onclick="openNewsEditor()">＋ Tulis Berita Pertama</button></div></div>';return}wrap.innerHTML='';siteState.news.forEach(item=>{const card=document.createElement('article');card.className='news-card';card.innerHTML=`${item.photo?`<div class="news-media"><img src="${item.photo}" alt="${escapeHtml(item.title)}"></div>`:''}<div class="news-details"><div class="news-date">📰 ${escapeHtml(prettyDate(item.date))}</div><h4>${escapeHtml(item.title)}</h4><p class="news-ellipsis">${escapeHtml(item.content)}</p><details><summary style="cursor:pointer;color:#1d4ed8;font-weight:800">Baca Selengkapnya</summary><p style="white-space:pre-line">${escapeHtml(item.content)}</p></details><div class="gallery-controls"><button type="button" class="btn btn-soft admin-only" data-edit-news="${escapeHtml(item.id)}">✎ Edit / Ganti Foto</button><button type="button" class="btn btn-danger admin-only" data-delete-news="${escapeHtml(item.id)}">Hapus</button></div></div>`;wrap.appendChild(card)})}
     function openNewsEditor(id){if(!requireAdmin())return;document.getElementById('newsEditorForm').reset();const item=siteState.news.find(x=>x.id===id);document.getElementById('newsEditId').value=item?.id||'';document.getElementById('newsEditorTitle').textContent=item?'Edit Berita Warga':'Tulis Berita Warga';document.getElementById('newsEditTitle').value=item?.title||'';document.getElementById('newsEditDate').value=item?.date||new Date().toISOString().slice(0,10);document.getElementById('newsEditContent').value=item?.content||'';document.getElementById('newsEditorBackdrop').hidden=false}
-    async function saveNewsEditor(e){e.preventDefault();if(!requireAdmin())return;const id=document.getElementById('newsEditId').value||makeId('news');const old=siteState.news.find(x=>x.id===id);let photo=old?.photo||null;const f=document.getElementById('newsEditPhoto').files[0];if(f){try{photo=await imageToData(f,1400)}catch(err){return showToast(err.message)}}const updated={id,title:document.getElementById('newsEditTitle').value.trim(),date:document.getElementById('newsEditDate').value,content:document.getElementById('newsEditContent').value.trim(),photo};if(old)Object.assign(old,updated);else siteState.news.unshift(updated);saveState();closeEditModal('newsEditorBackdrop');renderNews();showToast('Berita berhasil disimpan')}
+    async function saveNewsEditor(e){e.preventDefault();if(!requireAdmin())return;const id=document.getElementById('newsEditId').value||makeId('news');const old=siteState.news.find(x=>x.id===id);let photo=old?.photo||null;const f=document.getElementById('newsEditPhoto').files[0];if(f){try{photo=await imageToData(f,1400)}catch(err){return showToast(err.message)}}const updated={id,title:document.getElementById('newsEditTitle').value.trim(),date:document.getElementById('newsEditDate').value,content:document.getElementById('newsEditContent').value.trim(),photo};if(old)Object.assign(old,updated);else siteState.news.unshift(updated);saveState();closeEditModal('newsEditorBackdrop');renderNews();showToast('Menyimpan berita ke Firebase...')}
     function deleteNews(id){if(!requireAdmin()||!confirm('Hapus berita ini?'))return;siteState.news=siteState.news.filter(x=>x.id!==id);saveState();renderNews();showToast('Berita dihapus')}
     function openServiceModal(id){currentServiceId=id;const s=SERVICES.find(x=>x.id===id);if(!s)return;document.getElementById('serviceModalTitle').textContent=s.title;document.getElementById('serviceModalDesc').textContent=s.desc;document.getElementById('serviceReqs').innerHTML=s.requirements.map(r=>`<li>${escapeHtml(r)}</li>`).join('');document.getElementById('serviceSpecificFields').innerHTML='<div class="form-grid">'+s.specific.map(f=>f.type==='select'?`<div class="field"><label>${escapeHtml(f.label)}</label><select data-specific="${escapeHtml(f.id)}" ${f.required?'required':''}>${f.options.map(o=>`<option>${escapeHtml(o)}</option>`).join('')}</select></div>`:`<div class="field"><label>${escapeHtml(f.label)}</label><input data-specific="${escapeHtml(f.id)}" type="${f.type==='date'?'date':'text'}" placeholder="${escapeHtml(f.placeholder||'')}" ${f.required?'required':''}></div>`).join('')+'</div>';document.getElementById('serviceModalBackdrop').hidden=false}
     function closeServiceModal(){document.getElementById('serviceModalBackdrop').hidden=true}
@@ -703,7 +761,7 @@ body.admin-mode .photo-status-actions{display:flex}
     function renderHistory(){const list=document.getElementById('historyList');const items=getHistory();if(!items.length){list.innerHTML='<div class="empty-note">Belum ada riwayat. Cobalah kirim layanan atau Gesah Warga terlebih dahulu.</div>';return}list.innerHTML=items.map(item=>`<div class="history-item"><h6>${escapeHtml(item.type)} — ${escapeHtml(item.title)}</h6><p><strong>Pengirim:</strong> ${escapeHtml(item.sender)}<br><strong>Tujuan:</strong> ${escapeHtml(item.target)}<br><strong>Waktu:</strong> ${escapeHtml(item.time)}</p><details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;color:#1d4ed8">Lihat isi pesan</summary><p style="white-space:pre-wrap;margin-top:10px">${escapeHtml(item.message)}</p></details></div>`).join('')}
     function applySearch(){const q=(document.getElementById('globalSearch').value||'').toLowerCase();const cat=document.getElementById('filterCategory').value;const area=(document.getElementById('filterArea').value||'').toLowerCase();let count=0;document.querySelectorAll('.searchable-item').forEach(el=>{const text=el.dataset.search||'';const show=(!q||text.includes(q))&&(!cat||el.dataset.kind===cat)&&(!area||el.dataset.kind==='service'||text.includes(area));el.style.display=show?'':'none';if(show)count++});document.getElementById('searchResultsNote').textContent=q||cat||area?`Menampilkan ${count} hasil yang sesuai.`:'Gunakan kolom pencarian untuk memfilter layanan dan kontak yang tampil di halaman ini.'}
     function handleQuickAction(){const x=document.getElementById('quickAction');const where={gesah:'gesah',history:'riwayat',contacts:'kontak'}[x.value];if(where)scrollToSection(where);x.value=''}
-    function downloadCurrentHtml(){if(!requireAdmin())return;siteState.contacts=CONTACTS;const clone=document.documentElement.cloneNode(true);clone.classList.remove('admin-mode');clone.querySelector('body')?.classList.remove('admin-mode');const adminBtn=clone.querySelector('#adminActionBtn');if(adminBtn)adminBtn.textContent='Masuk Admin';const adminPill=clone.querySelector('#adminPill');if(adminPill)adminPill.style.display='none';clone.querySelectorAll('.modal-backdrop').forEach(el=>el.setAttribute('hidden',''));clone.querySelectorAll('input[type="file"]').forEach(el=>el.value='');const script=clone.querySelector('#embedded-state');script.textContent=JSON.stringify(siteState).replace(/</g,'\\u003c');const doc='<!DOCTYPE html>\n'+clone.outerHTML;const blob=new Blob([doc],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);showToast(`HTML berisi ${Object.keys(siteState.contactPhotos).length} foto siap. Ganti index.html di GitHub agar semua HP menampilkannya.`)}
+    function downloadCurrentHtml(){if(!requireAdmin())return;siteState.contacts=CONTACTS;const clone=document.documentElement.cloneNode(true);clone.classList.remove('admin-mode');clone.querySelector('body')?.classList.remove('admin-mode');const adminBtn=clone.querySelector('#adminActionBtn');if(adminBtn)adminBtn.textContent='Masuk Admin';const adminPill=clone.querySelector('#adminPill');if(adminPill)adminPill.style.display='none';clone.querySelectorAll('.modal-backdrop').forEach(el=>el.setAttribute('hidden',''));clone.querySelectorAll('input[type="file"]').forEach(el=>el.value='');const script=clone.querySelector('#embedded-state');script.textContent=JSON.stringify(siteState).replace(/</g,'\\u003c');const doc='<!DOCTYPE html>\n'+clone.outerHTML;const blob=new Blob([doc],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);showToast('Cadangan HTML dibuat. Publikasi warga melalui Firebase otomatis.')}
 
     document.addEventListener('click',e=>{
       const map=[['editContact','edit-contact',openContactEditor],['deleteContact','delete-contact',deleteContact],['removePhoto','remove-photo',removeContactPhoto],['editGallery','edit-gallery',openGalleryEditor],['deleteGallery','delete-gallery',deleteGallery],['editNews','edit-news',openNewsEditor],['deleteNews','delete-news',deleteNews],['copyid','copyid',id=>{const c=CONTACTS.find(x=>x.id===id);if(c)copyText(c.phoneDisplay)}]];
@@ -711,7 +769,139 @@ body.admin-mode .photo-status-actions{display:flex}
       ['serviceModalBackdrop','adminModalBackdrop','contactEditorBackdrop','galleryEditorBackdrop','newsEditorBackdrop'].forEach(id=>{if(e.target===document.getElementById(id))document.getElementById(id).hidden=true});
     });
     document.addEventListener('change',e=>{const el=e.target.closest('[data-upload-contact]');if(el)uploadContactPhoto(el.dataset.uploadContact,el)});
+    
+    // ---------- SI-TENGORO: Firebase publik (semua HP) ----------
+    const FIREBASE_PUBLIC_PATH='siTengoroPublic';
+    const FIREBASE_MEDIA_PATH='siTengoroMedia';
+    function onlineStatus(message, mode='waiting'){
+      const el=document.getElementById('firebaseStatus');
+      if(el){el.className='online-status '+mode;document.getElementById('firebaseStatusText').textContent=message;}
+    }
+    function renderAllPublic(){
+      CONTACTS=siteState.contacts;
+      renderSiteImages();renderServices();populateTargetSelects();renderContacts();renderGallery();renderNews();
+    }
+    function publicMetaSnapshot(){
+      return {
+        contacts:CONTACTS.map(c=>({...c})),
+        gallery:siteState.gallery.map(({photo,...rest})=>rest),
+        news:siteState.news.map(({photo,...rest})=>rest),
+        site:{...siteState.site},updatedAt:Date.now()
+      };
+    }
+    function mediaSnapshot(){
+      const photos={};
+      const isPhoto=x=>typeof x==='string'&&/^data:image\/(webp|jpeg|png);base64,/i.test(x);
+      for(const [id,data] of Object.entries(siteState.contactPhotos||{}))if(isPhoto(data))photos['contact-'+id]=data;
+      for(const [slot,data] of Object.entries(siteState.images||{}))if(isPhoto(data))photos['image-'+slot]=data;
+      for(const g of siteState.gallery)if(isPhoto(g.photo))photos['gallery-'+g.id]=g.photo;
+      for(const n of siteState.news)if(isPhoto(n.photo))photos['news-'+n.id]=n.photo;
+      return photos;
+    }
+    function currentBatchOfServerData(){
+      const site={...(embeddedBase.site||{}),...(serverMeta?.site||{})};
+      const contacts=Array.isArray(serverMeta?.contacts)?serverMeta.contacts:(embeddedBase.contacts||DEFAULT_CONTACTS);
+      const gallery=(serverMeta?.gallery||[]).map(x=>({...x,photo:serverMedia['gallery-'+x.id]||null}));
+      const news=(serverMeta?.news||[]).map(x=>({...x,photo:serverMedia['news-'+x.id]||null}));
+      const images={...(embeddedBase.images||{})};
+      const contactPhotos={};
+      for(const [id,dataUrl] of Object.entries(serverMedia)){
+        if(id.startsWith('image-'))images[id.slice(6)]=dataUrl;
+        if(id.startsWith('contact-'))contactPhotos[id.slice(8)]=dataUrl;
+      }
+      return {contacts,images,contactPhotos,site,gallery,news,updatedAt:serverMeta?.updatedAt||1};
+    }
+    function applyServerData(){
+      if(!publicDocReady||!mediaCollectionReady||pendingPublishes>0)return;
+      siteState=currentBatchOfServerData();
+      CONTACTS=siteState.contacts;
+      liveReady=true;
+      try{localStorage.setItem(ONLINE_CACHE_KEY,JSON.stringify(siteState))}catch(e){}
+      onlineStatus(`Tersinkron dengan Firebase • ${CONTACTS.length} kontak. Perubahan admin tampil di semua HP.`, 'ok');
+      renderAllPublic();
+    }
+    function importLocalPhotosIntoFirebase(){
+      if(!requireAdmin())return;
+      const candidates={...legacySavedPhotos()};
+      try{
+        const local=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+        if(local.contactPhotos&&typeof local.contactPhotos==='object')Object.assign(candidates,local.contactPhotos);
+      }catch(e){}
+      let copied=0,skipped=0;
+      for(const c of CONTACTS){
+        const v=candidates[c.id];
+        if(siteState.contactPhotos[c.id]||typeof v!=='string')continue;
+        if(/^data:image\/(webp|jpeg|png);base64,/i.test(v)&&v.length<550000){
+          siteState.contactPhotos[c.id]=v;copied++;
+        }else if(v){skipped++;}
+      }
+      if(!copied){showToast(skipped?'Foto lama terlalu besar, unggah kembali fotonya.':'Tidak ada foto lama di browser ini.');return;}
+      saveState();renderContacts();
+      showToast(`${copied} foto lama sedang dipublikasikan ke Firebase.`);
+    }
+    function queuePublishLive(){
+      if(!isAdmin||!liveReady||!db){onlineStatus('Tidak bisa menerbitkan perubahan: admin belum terhubung.', 'error');return;}
+      const meta=publicMetaSnapshot(),media=mediaSnapshot();
+      pendingPublishes++;
+      onlineStatus('Mengunggah perubahan admin ke Firebase...', 'waiting');
+      publishQueue=publishQueue.then(async()=>{
+        const batch=db.batch();
+        batch.set(db.collection(FIREBASE_PUBLIC_PATH).doc('primary'),meta);
+        const allKeys=new Set([...Object.keys(publishedMedia),...Object.keys(media)]);
+        let count=1;
+        for(const key of allKeys){
+          const ref=db.collection(FIREBASE_MEDIA_PATH).doc(key);
+          if(!(key in media)){batch.delete(ref);count++;}
+          else if(media[key]!==publishedMedia[key]){
+            if(media[key].length>550000)throw Error('Gambar terlalu besar untuk kuota per dokumen Firestore.');
+            batch.set(ref,{dataUrl:media[key],updatedAt:Date.now()});count++;
+          }
+        }
+        if(count>490)throw Error('Terlalu banyak gambar sekaligus; publikasikan dalam beberapa tahap.');
+        await batch.commit();
+        publishedMedia={...media};
+        onlineStatus('Perubahan berhasil terbit di Firebase dan terlihat oleh semua HP.', 'ok');
+        showToast('Tersimpan online! Warga dapat melihat perubahannya.');
+      }).catch(error=>{
+        onlineStatus('Gagal menyimpan online: '+(error.code||error.message)+' — periksa Firestore Rules & koneksi.', 'error');
+        showToast('Gagal menerbitkan perubahan online. Periksa aturan Firebase.');
+      }).finally(()=>{pendingPublishes=Math.max(0,pendingPublishes-1);applyServerData()});
+    }
+    async function initFirebaseOnline(){
+      const config=window.SI_TENGORO_FIREBASE_CONFIG;
+      if(!config||!config.apiKey||!config.projectId||!config.authDomain){
+        onlineStatus('Firebase belum dikonfigurasi. Lengkapi firebase-config.js agar warga bisa melihat foto yang sama.', 'error');return;
+      }
+      if(typeof firebase==='undefined'||!firebase.apps){
+        onlineStatus('SDK Firebase belum berhasil dimuat. Periksa internet dan pemblokir skrip.', 'error');return;
+      }
+      try{
+        firebaseApp=firebase.apps.length?firebase.app():firebase.initializeApp(config);
+        auth=firebase.auth();db=firebase.firestore();
+        onlineStatus('Memuat kontak dan gambar dari Firebase...', 'waiting');
+        auth.onAuthStateChanged(async user=>{
+          if(!user){if(isAdmin)setAdminMode(false);return;}
+          try{
+            const doc=await db.collection('siTengoroAdmins').doc(user.uid).get({source:'server'});
+            setAdminMode(doc.exists&&doc.data().active===true);
+          }catch(err){setAdminMode(false)}
+        });
+        db.collection(FIREBASE_PUBLIC_PATH).doc('primary').onSnapshot(doc=>{
+          serverMeta=doc.exists?doc.data():null;
+          publicDocReady=true;
+          applyServerData();
+        }, err=>{liveReady=false;onlineStatus('Gagal membaca database Firebase: '+(err.code||err.message), 'error')});
+        db.collection(FIREBASE_MEDIA_PATH).onSnapshot(snapshot=>{
+          const all={};
+          snapshot.docs.forEach(d=>{if(typeof d.data().dataUrl==='string')all[d.id]=d.data().dataUrl});
+          serverMedia=all;publishedMedia={...all};mediaCollectionReady=true;
+          applyServerData();
+        },err=>{liveReady=false;onlineStatus('Gagal membaca foto online: '+(err.code||err.message), 'error')});
+      }catch(err){liveReady=false;onlineStatus('Firebase belum aktif: '+(err.code||err.message), 'error')}
+    }
+
     renderSiteImages();renderServices();renderContacts();renderGallery();renderNews();renderHistory();updateAdminPill();
+    window.addEventListener('load', initFirebaseOnline);
   </script>
 </body>
 </html>
