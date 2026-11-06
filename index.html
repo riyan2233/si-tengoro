@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="theme-color" content="#ffd51e">
+    <meta name="theme-color" content="#0b2854">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SI-TENGORO">
@@ -195,9 +195,105 @@
         .admin-error {min-height:18px;color:#b42318;font-size:11px;font-weight:700;margin-top:9px;}
         .admin-photo-status {font-size:11px;font-weight:800;color:#5a510e;background:#fff0a5;border-radius:9px;padding:7px 9px;}
 
+
+        /* ==========================================================
+           BERANDA IOS / STYLE IPHONE — ORISINAL, TANPA ASSET APPLE
+           ========================================================== */
+        .hidden {display:none!important;} /* fallback ketika CDN Tailwind belum termuat */
+        html, body {margin:0;}
+        html {scroll-behavior:smooth;}
+        body.on-ios-home {background:#e8edf7;color:#172338;}
+        body.on-ios-home .site-header {display:none!important;}
+        body.on-ios-home .app-shell {background:#e9eef5;padding-bottom:0!important;}
+        body.on-ios-home .app-shell > main {padding:0!important;}
+        body.on-ios-home .app-shell footer {display:none;}
+        .ios-home {width:100%;margin:0 auto;max-width:490px!important;}
+        .ios-screen {position:relative;isolation:isolate;overflow:hidden;min-height:100dvh;background:linear-gradient(152deg,#061c43 0%,#123769 42%,#091d44 83%,#081a41 100%);padding:23px 19px 80px;color:#fff;}
+        .ios-wallpaper-glow {position:absolute;z-index:-1;pointer-events:none;border-radius:50%;filter:blur(4px);opacity:.95;}
+        .ios-glow-1 {width:110%;height:520px;left:-52%;top:25%;background:radial-gradient(ellipse,rgba(41,105,175,.56),rgba(13,42,97,.02) 70%);}
+        .ios-glow-2 {width:108%;height:400px;right:-56%;bottom:2%;background:radial-gradient(ellipse,rgba(31,76,150,.48),transparent 71%);}
+        .ios-wallpaper-wave {position:absolute;z-index:-1;width:145px;height:140px;right:12%;top:48%;opacity:.16;border:2px solid white;transform:rotate(-20deg) skewX(-8deg);clip-path:polygon(0% 30%, 100% 0%,100% 67%,0% 100%);pointer-events:none;}
+        .ios-topline {display:flex;align-items:center;justify-content:space-between;margin:0 4px 20px;font-size:13px;font-weight:800;letter-spacing:.4px;}
+        .ios-topline-right {display:flex;gap:9px;align-items:center;}
+        .ios-topline-brand {color:#d7e8ff;font-size:9px;letter-spacing:1.3px;font-weight:750;}
+        .ios-headline {margin:9px 2px 19px;}
+        .ios-eyebrow {font-size:9px;color:#a7cbff;font-weight:850;letter-spacing:1.4px;}
+        .ios-headline h1 {font-size:26px;font-weight:880;letter-spacing:-.65px;line-height:1.2;margin:5px 0 1px;color:white;}
+        .ios-headline p {font-size:12px;color:#c5d5ed;}
+        .ios-widgets {display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+        .ios-widget {border:0;border-radius:24px;position:relative;min-width:0;height:171px;padding:16px;display:flex;flex-direction:column;align-items:flex-start;box-shadow:0 9px 28px rgba(0,0,0,.14);text-align:left;}
+        .ios-widget-info {background:linear-gradient(143deg,#8ca8bd 0%,#6683a1 60%,#57748e 100%);color:white;}
+        .ios-widget-kicker {font-size:9px;font-weight:800;color:#e7f3ff;letter-spacing:.25px;}
+        .ios-widget-info strong {font-size:29px;font-weight:650;line-height:1.04;margin:12px 0 8px;letter-spacing:-.5px;}
+        .ios-widget-description {font-size:10px;color:#edf5fe;line-height:1.4;}
+        .ios-widget-footer {display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:auto;gap:6px;font-size:10px;font-weight:750;}
+        .ios-widget-info .ios-widget-footer {color:#f7fafe;}
+        .ios-widget-date {color:#15233d;background:#fff;}
+        .ios-widget-calendar-top {width:100%;display:flex;align-items:center;justify-content:space-between;font-size:9px;color:#de4848;font-weight:850;letter-spacing:.6px;}
+        .ios-calendar-glyph {font-size:23px;color:#d4d9e2;line-height:1;}
+        .ios-widget-date strong {font-size:70px;font-weight:370;line-height:1;margin:8px 0 0;letter-spacing:-4px;color:#15233d;}
+        .ios-widget-date #iosMonthYear {font-size:11px;color:#677288;font-weight:650;}
+        .ios-date-separator {border-bottom:1px solid #e8ebf0;width:100%;margin:9px 0 7px;}
+        .ios-widget-date .ios-widget-footer {color:#657084;}
+        .ios-section-label {display:flex;justify-content:space-between;align-items:center;margin:26px 3px 16px;gap:8px;}
+        .ios-section-label strong {color:white;font-weight:850;font-size:14px;}
+        .ios-section-label span {color:#b4c6df;font-size:10px;}
+        .ios-app-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:9px;row-gap:19px;}
+        .ios-app {min-width:0;display:flex;align-items:center;flex-direction:column;gap:8px;text-align:center;appearance:none;border:0;background:none;color:white;cursor:pointer;}
+        .ios-app:focus-visible,.site-bottom-nav button:focus-visible,.ios-spotlight:focus-visible {outline:3px solid #ffe369;outline-offset:3px;}
+        .ios-icon {width:clamp(50px,13vw,64px);height:clamp(50px,13vw,64px);flex:0 0 auto;border-radius:16px;display:grid;place-items:center;color:white;box-shadow:0 5px 12px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.32);transition:transform .16s ease;}
+        .ios-app:active .ios-icon {transform:scale(.91);}
+        .ios-icon svg {width:53%;height:53%;}
+        .ios-app-label {max-width:100%;font-size:10px;font-weight:700;line-height:1.18;text-shadow:0 1px 4px rgba(0,0,0,.55);overflow-wrap:break-word;}
+        .ios-icon-blue {background:linear-gradient(145deg,#6aa9ff,#2b6eea);}
+        .ios-icon-orange {background:linear-gradient(145deg,#ffc263,#f58a2f);}
+        .ios-icon-gray {background:linear-gradient(145deg,#9aacc5,#64748b);}
+        .ios-icon-violet {background:linear-gradient(145deg,#b19afb,#7555cc);}
+        .ios-icon-red {background:linear-gradient(145deg,#ff858a,#e54d64);}
+        .ios-icon-green {background:linear-gradient(145deg,#5ee38a,#0fa85d);}
+        .ios-icon-teal {background:linear-gradient(145deg,#53e1d4,#099a9c);}
+        .ios-icon-sky {background:linear-gradient(145deg,#7ce5ff,#2492cb);}
+        .ios-icon-indigo {background:linear-gradient(145deg,#8ba7ff,#4c63d5);}
+        .ios-icon-slate {background:linear-gradient(145deg,#8e9db2,#455c80);}
+        .ios-icon-gold {background:linear-gradient(145deg,#ffdf63,#f3aa31);}
+        .ios-icon-purple {background:linear-gradient(145deg,#d5a6fb,#925ad1);}
+        .ios-spotlight {margin:12px auto 0;display:flex;align-items:center;gap:7px;justify-content:center;border:0;border-radius:100px;background:rgba(255,255,255,.16);color:#e8f2ff;padding:8px 18px;font-weight:750;font-size:11px;backdrop-filter:blur(10px);}
+        .ios-spotlight span {font-size:17px;line-height:.5;}
+        .ios-page-dots {display:flex;justify-content:center;gap:5px;margin-top:16px;}
+        .ios-page-dots>* {width:6px;height:6px;background:rgba(255,255,255,.34);border-radius:50%;display:block;}
+        .ios-page-dots>b {background:white;width:17px;border-radius:5px;}
+        .ios-small-credit {text-align:center;color:rgba(225,238,255,.65);font-size:9px;margin-top:12px;}
+        .site-bottom-nav {position:fixed;left:50%;bottom:0;transform:translateX(-50%);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;z-index:30;width:min(100%,1024px);padding:8px 16px max(8px,env(safe-area-inset-bottom));background:#fff;border:1px solid #e3e7ee;box-shadow:0 -3px 18px rgba(0,0,0,.09);}
+        .site-bottom-nav .nav-btn {border:0;background:transparent;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 0 4px;color:#627085;min-width:0;}
+        .site-bottom-nav .nav-btn.ios-nav-active {color:#07568f;background:#eef5fb;}
+        .site-bottom-nav .ios-nav-icon {width:30px;height:30px;display:grid;place-items:center;}
+        .site-bottom-nav .ios-nav-icon svg {width:22px;height:22px;}
+        .site-bottom-nav .ios-nav-label {font-size:10px;font-weight:800;}
+        body.on-ios-home .site-bottom-nav {max-width:440px;width:calc(100% - 30px)!important;bottom:11px;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(157,180,214,.34);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);box-shadow:0 14px 30px rgba(0,0,0,.25);padding:10px 13px max(10px,env(safe-area-inset-bottom));}
+        body.on-ios-home .site-bottom-nav .nav-btn {border-radius:16px;padding:0;background:transparent!important;color:white!important;}
+        body.on-ios-home .site-bottom-nav .ios-nav-icon {width:clamp(47px,13vw,60px);height:clamp(47px,13vw,60px);background:linear-gradient(145deg,#49dd7c,#069d54);border-radius:15px;box-shadow:0 4px 10px rgba(0,0,0,.17);}
+        body.on-ios-home .site-bottom-nav .nav-btn:nth-child(2) .ios-nav-icon {background:linear-gradient(145deg,#709ffe,#345ed9);}
+        body.on-ios-home .site-bottom-nav .nav-btn:nth-child(3) .ios-nav-icon {background:linear-gradient(145deg,#86d7fb,#2084d2);}
+        body.on-ios-home .site-bottom-nav .nav-btn:nth-child(4) .ios-nav-icon {background:linear-gradient(145deg,#ffbd65,#ed8a34);}
+        body.on-ios-home .site-bottom-nav .ios-nav-icon svg {width:29px;height:29px;}
+        body.on-ios-home .site-bottom-nav .ios-nav-label {display:none;}
+        /* Pencarian terpusat — dapat dibuka langsung dari ikon iPhone. */
+        #iosSearchOverlay[hidden] {display:none!important;}
+        #iosSearchOverlay {position:fixed;z-index:80;inset:0;background:rgba(4,16,39,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:70px 15px 24px;display:flex;align-items:flex-start;justify-content:center;}
+        .ios-search-panel {width:min(100%,460px);background:#fff;color:#1e293b;border-radius:25px;padding:17px;box-shadow:0 20px 50px rgba(0,0,0,.25);max-height:calc(100dvh - 95px);display:flex;flex-direction:column;gap:13px;}
+        .ios-search-row {display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:900;}
+        .ios-search-row button {background:#eef0f5;border:0;border-radius:50%;height:31px;width:31px;font-weight:bold;}
+        .ios-search-panel input {background:#f1f5f9;border:1px solid #dfe5ee;width:100%;padding:13px 15px;border-radius:13px;font-size:14px;color:#14213d;outline:none;}
+        #iosSearchResults {overflow:auto;max-height:55dvh;display:flex;flex-direction:column;gap:6px;}
+        #iosSearchResults button {border:1px solid #e5eaf1;background:#f8fafc;padding:12px 13px;border-radius:12px;text-align:left;color:#1e293b;font-size:13px;font-weight:760;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+        #iosSearchResults button small {color:#64748b;font-size:10px;}
+        @media(min-width:660px){.ios-screen{margin:20px auto 0;min-height:800px;border-radius:48px 48px 0 0;border:8px solid #162b4b;box-shadow:0 20px 65px rgba(18,39,73,.22);padding:25px 22px 100px;}.ios-home{max-width:460px;}}
+        @media(max-width:375px){.ios-screen{padding:17px 12px 90px;}.ios-widgets{gap:10px;}.ios-widget{height:156px;padding:12px;border-radius:21px;}.ios-widget-info strong{font-size:26px;}.ios-widget-date strong{font-size:62px;}.ios-app-grid{column-gap:4px;row-gap:16px;}.ios-app-label{font-size:9px;}.ios-section-label{margin-top:22px;}.ios-topline-brand{font-size:8px;}}
+        @media(prefers-reduced-motion:reduce){.ios-icon,.ios-app{transition:none!important;}}
+
     </style>
 </head>
-<body class="min-h-screen flex justify-center bg-slate-200 selection:bg-emerald-600 selection:text-white">
+<body class="on-ios-home min-h-screen flex justify-center bg-slate-200 selection:bg-emerald-600 selection:text-white">
 
     <!-- MOBILE APP CONTAINER (Rapi di HP & Tablet/Desktop) -->
     <div class="app-shell w-full max-w-5xl bg-white min-h-screen flex flex-col relative shadow-2xl border-x border-slate-200 pb-24">
@@ -231,7 +327,41 @@
             <!-- ========================================== -->
             <!-- TAB 1: BERANDA & LAYANAN ADMINISTRASI DESA -->
             <!-- ========================================== -->
-            <section id="tab-home" class="space-y-4 animate-fade">
+            
+            <!-- BERANDA BARU — GAYA LAYAR UTAMA IPHONE, SEMUA IKON DAPAT DIKLIK -->
+            <section id="tab-home" class="ios-home animate-fade">
+              <div class="ios-screen">
+                <div class="ios-wallpaper-glow ios-glow-1" aria-hidden="true"></div>
+                <div class="ios-wallpaper-glow ios-glow-2" aria-hidden="true"></div>
+                <div class="ios-wallpaper-wave" aria-hidden="true"></div>
+                <div class="ios-topline"><span id="iosStatusClock">--:--</span><div class="ios-topline-right"><span class="ios-topline-brand">SI-TENGORO</span><svg viewBox="0 0 35 18" width="33" height="17" aria-hidden="true"><path d="M3 13v-3M8 13V7M13 13V4M18 13V2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M23 6a7.5 7.5 0 0 1 10 0M25 9a4.5 4.5 0 0 1 6 0M28 12h.01" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></div></div>
+                <div class="ios-headline"><span class="ios-eyebrow">DUSUN TENGOROREJO · DESA SONGGON</span><h1>SI-TENGORO</h1><p>Layanan warga dalam genggaman.</p></div>
+                <div class="ios-widgets">
+                   <button type="button" onclick="switchTab('layanan')" class="ios-widget ios-widget-info"><span class="ios-widget-kicker">● INFORMASI WARGA</span><strong>Halo,<br>Warga!</strong><span class="ios-widget-description">Administrasi & informasi dalam satu aplikasi</span><span class="ios-widget-footer">Buka layanan <span>↗</span></span></button>
+                   <div class="ios-widget ios-widget-date"><div class="ios-widget-calendar-top"><span id="iosWeekday">HARI INI</span><span class="ios-calendar-glyph" aria-hidden="true">▦</span></div><strong id="iosDayNumber">--</strong><span id="iosMonthYear">Memuat tanggal...</span><span class="ios-date-separator"></span><span class="ios-widget-footer">Kalender <span id="iosDateShort">2026</span></span></div>
+                </div>
+                <div class="ios-section-label"><strong>Pilihan Layanan</strong><span>Ketuk ikon untuk membuka</span></div>
+                <div class="ios-app-grid">
+<button class="ios-app" type="button" onclick="openServiceModal('kk')" aria-label="Buka Kartu Keluarga"><span class="ios-icon ios-icon-blue"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.7 19v-1.2A5.8 5.8 0 0 1 9.5 12h.3a5.8 5.8 0 0 1 5.7 5.8V19z"/><path d="M17 5a3 3 0 0 1 0 6m1.1 2a4.7 4.7 0 0 1 3 4.4V19"/></svg></span><span class="ios-app-label">Kartu Keluarga</span></button>
+<button class="ios-app" type="button" onclick="openServiceModal('kelahiran')" aria-label="Buka Akta Kelahiran"><span class="ios-icon ios-icon-orange"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M9.5 14.5c1.2 1.5 3.8 1.5 5 0M9 10h.01M15 10h.01"/><path d="M10 4.3c-.1-2 3.8-2.2 3.8.5"/></svg></span><span class="ios-app-label">Akta Kelahiran</span></button>
+<button class="ios-app" type="button" onclick="openServiceModal('kematian')" aria-label="Buka Akta Kematian"><span class="ios-icon ios-icon-gray"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span><span class="ios-app-label">Akta Kematian</span></button>
+<button class="ios-app" type="button" onclick="openServiceModal('usaha')" aria-label="Buka Izin Usaha"><span class="ios-icon ios-icon-violet"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 6 4h12l2 6.5a3 3 0 0 1-4.5 2.6 3 3 0 0 1-5 0 3 3 0 0 1-5 0A3 3 0 0 1 4 10.5Z"/><path d="M6 13v7h12v-7M10 20v-5h4v5"/></svg></span><span class="ios-app-label">Izin Usaha</span></button>
+<button class="ios-app" type="button" onclick="openServiceModal('keramaian')" aria-label="Buka Izin Acara"><span class="ios-icon ios-icon-red"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="2.8"/><path d="M7.5 3v5M16.5 3v5M3.5 10.5h17M8.5 15h7"/></svg></span><span class="ios-app-label">Izin Acara</span></button>
+<button class="ios-app" type="button" onclick="switchTab('gesah')" aria-label="Buka Gesah Warga"><span class="ios-icon ios-icon-green"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5c0 4.4-3.7 7.5-8.2 7.5a9.7 9.7 0 0 1-3.5-.6L4 20l1.2-4.3A7 7 0 0 1 4 11.5C4 7.1 7.5 4 12 4s8 3.1 8 7.5Z"/><path d="M8.6 11.5h.01M12 11.5h.01M15.4 11.5h.01"/></svg></span><span class="ios-app-label">Gesah Warga</span></button>
+<button class="ios-app" type="button" onclick="switchTab('kontak')" aria-label="Buka Kontak Warga"><span class="ios-icon ios-icon-teal"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.8 10 7.2l-1.7 2.3a16.8 16.8 0 0 0 6.2 6.2l2.3-1.7 3.4 2.5a2.1 2.1 0 0 1 .3 2.8 4.2 4.2 0 0 1-3.8 1.5c-6.2-.9-11.6-6.3-12.5-12.5a4.2 4.2 0 0 1 1.5-3.8 2.1 2.1 0 0 1 2.8.3Z"/></svg></span><span class="ios-app-label">Kontak Warga</span></button>
+<button class="ios-app" type="button" onclick="switchTab('riwayat')" aria-label="Buka Riwayat"><span class="ios-icon ios-icon-sky"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V3.5M4 7h3.5M4 7a9 9 0 1 1-1 7M12 7v5l3.3 2"/></svg></span><span class="ios-app-label">Riwayat</span></button>
+<button class="ios-app" type="button" onclick="switchTab('layanan')" aria-label="Buka Semua Layanan"><span class="ios-icon ios-icon-indigo"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.7"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.7"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.7"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.7"/></svg></span><span class="ios-app-label">Semua Layanan</span></button>
+<button class="ios-app" type="button" onclick="openIosSearch()" aria-label="Buka Cari"><span class="ios-icon ios-icon-slate"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></span><span class="ios-app-label">Cari</span></button>
+<button class="ios-app" type="button" onclick="openIosAdmin()" aria-label="Buka Login Admin"><span class="ios-icon ios-icon-gold"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.8" y="10.5" width="14.4" height="10" rx="2.4"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 14v2.5"/></svg></span><span class="ios-app-label">Login Admin</span></button>
+<button class="ios-app" type="button" onclick="openInstallModal()" aria-label="Buka Pasang App"><span class="ios-icon ios-icon-purple"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></span><span class="ios-app-label">Pasang App</span></button>
+                </div>
+                <div class="ios-page-dots" aria-hidden="true"><b></b><i></i><i></i></div>
+                <button type="button" class="ios-spotlight" onclick="openIosSearch()" aria-label="Cari layanan dan kontak"><span>⌕</span> Cari layanan & kontak</button>
+              </div>
+            </section>
+            <!-- LAYANAN LAMA DIPERTAHANKAN LENGKAP -->
+            <section id="tab-layanan" class="hidden space-y-4 animate-fade">
+
 
                 <!-- HERO PORTAL LAYANAN -->
                 <div class="hero-card">
@@ -641,35 +771,11 @@
         </main>
 
         <!-- BOTTOM NAVIGATION BAR (Ramah Jempol di Semua HP Android) -->
-        <nav class="site-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-5xl bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-30 px-2 py-1.5 grid grid-cols-4 gap-1">
-            <button onclick="switchTab('home')" id="nav-home" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-emerald-700 bg-emerald-50 font-extrabold transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                <span class="text-[11px] mt-0.5">Layanan</span>
-            </button>
-
-            <button onclick="switchTab('gesah')" id="nav-gesah" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:bg-slate-50 font-bold transition relative">
-                <span class="absolute top-1 right-4 w-2 h-2 rounded-full bg-amber-500"></span>
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                </svg>
-                <span class="text-[11px] mt-0.5">Gesah Warga</span>
-            </button>
-
-            <button onclick="switchTab('kontak')" id="nav-kontak" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:bg-slate-50 font-bold transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                </svg>
-                <span class="text-[11px] mt-0.5">Nomor HP</span>
-            </button>
-
-            <button onclick="switchTab('riwayat')" id="nav-riwayat" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:bg-slate-50 font-bold transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <span class="text-[11px] mt-0.5">Riwayat</span>
-            </button>
+        <nav class="site-bottom-nav" aria-label="Menu utama SI-TENGORO">
+          <button type="button" id="nav-home" onclick="switchTab('home')" class="nav-btn ios-nav-active" aria-label="Beranda"><span class="ios-nav-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M9 20v-7h6v7"/></svg></span><span class="ios-nav-label">Beranda</span></button>
+          <button type="button" id="nav-layanan" onclick="switchTab('layanan')" class="nav-btn " aria-label="Layanan"><span class="ios-nav-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.7"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.7"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.7"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.7"/></svg></span><span class="ios-nav-label">Layanan</span></button>
+          <button type="button" id="nav-gesah" onclick="switchTab('gesah')" class="nav-btn " aria-label="Gesah"><span class="ios-nav-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5c0 4.4-3.7 7.5-8.2 7.5a9.7 9.7 0 0 1-3.5-.6L4 20l1.2-4.3A7 7 0 0 1 4 11.5C4 7.1 7.5 4 12 4s8 3.1 8 7.5Z"/><path d="M8.6 11.5h.01M12 11.5h.01M15.4 11.5h.01"/></svg></span><span class="ios-nav-label">Gesah</span></button>
+          <button type="button" id="nav-kontak" onclick="switchTab('kontak')" class="nav-btn " aria-label="Kontak"><span class="ios-nav-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.8 10 7.2l-1.7 2.3a16.8 16.8 0 0 0 6.2 6.2l2.3-1.7 3.4 2.5a2.1 2.1 0 0 1 .3 2.8 4.2 4.2 0 0 1-3.8 1.5c-6.2-.9-11.6-6.3-12.5-12.5a4.2 4.2 0 0 1 1.5-3.8 2.1 2.1 0 0 1 2.8.3Z"/></svg></span><span class="ios-nav-label">Kontak</span></button>
         </nav>
 
     </div>
@@ -840,6 +946,15 @@
                 </div>
             </form>
         </div>
+    </div>
+
+
+    <div id="iosSearchOverlay" role="dialog" aria-modal="true" aria-label="Cari layanan dan kontak" hidden onclick="if(event.target===this)closeIosSearch()">
+      <div class="ios-search-panel">
+        <div class="ios-search-row"><strong>⌕ Cari SI-TENGORO</strong><button type="button" onclick="closeIosSearch()" aria-label="Tutup">✕</button></div>
+        <input id="iosSearchInput" type="search" placeholder="Contoh: KK, akta, kepala dusun..." autocomplete="off" oninput="searchIosContent(this.value)" aria-label="Kata pencarian">
+        <div id="iosSearchResults" aria-live="polite"></div>
+      </div>
     </div>
 
     <!-- TOAST NOTIFICATION -->
@@ -1179,10 +1294,45 @@
             setupPWAFeatures();
         };
 
+
+        function openIosAdmin() { switchTab('kontak'); openAdminLogin(); }
+        function openIosSearch() {
+            const overlay = document.getElementById('iosSearchOverlay');
+            overlay.hidden = false;
+            const input = document.getElementById('iosSearchInput');
+            input.value = '';
+            searchIosContent('');
+            setTimeout(() => input.focus(), 20);
+        }
+        function closeIosSearch() { document.getElementById('iosSearchOverlay').hidden = true; }
+        function searchIosContent(value) {
+            const q = (value || '').trim().toLocaleLowerCase('id-ID');
+            const results = document.getElementById('iosSearchResults');
+            const serviceItems = [
+               ['kk','Kartu Keluarga / KK'], ['kelahiran','Akta Kelahiran'],
+               ['kematian','Akta Kematian'], ['usaha','Izin Usaha'],
+               ['keramaian','Izin Keramaian / Acara']
+            ];
+            const matches = serviceItems.filter(x => !q || x[1].toLocaleLowerCase('id-ID').includes(q))
+              .map(([id,label])=> `<button type="button" onclick="closeIosSearch();openServiceModal('${id}')"><span>${label}</span><small>Administrasi ›</small></button>`);
+            for (const c of CONTACTS.filter(c => !q || `${c.role} ${c.name}`.toLocaleLowerCase('id-ID').includes(q)).slice(0,q?15:3)) {
+                matches.push(`<button type="button" onclick="closeIosSearch();switchTab('kontak')"><span>${escapeContactText(c.name)}</span><small>${escapeContactText(c.shortRole)} ›</small></button>`);
+            }
+            if (!q || ['gesah','saran','aspirasi','laporan'].some(w => w.includes(q) || q.includes(w)))
+              matches.push(`<button type="button" onclick="closeIosSearch();switchTab('gesah')"><span>Gesah Warga</span><small>Saran & laporan ›</small></button>`);
+            results.innerHTML = matches.length ? matches.join('') : '<p style="font-size:13px;color:#64748b;padding:10px">Tidak ditemukan. Coba kata kunci lain.</p>';
+        }
+        document.addEventListener('keydown', event => {if(event.key==='Escape') closeIosSearch();});
+
         function updateClock() {
             const now = new Date();
             const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-            document.getElementById('liveClock').textContent = now.toLocaleDateString('id-ID', options) + ' WIB';
+            document.getElementById('liveClock').textContent = now.toLocaleDateString('id-ID', options);
+            document.getElementById('iosStatusClock').textContent = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}).replace('.', ':');
+            document.getElementById('iosWeekday').textContent = now.toLocaleDateString('id-ID',{weekday:'long'}).toUpperCase();
+            document.getElementById('iosDayNumber').textContent = String(now.getDate());
+            document.getElementById('iosMonthYear').textContent = now.toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+            document.getElementById('iosDateShort').textContent = String(now.getFullYear());
         }
 
         function toggleFontSize() {
@@ -1204,19 +1354,19 @@
         // 4. NAVIGASI TAB
         // -----------------------------------------------------------------
         function switchTab(tabName) {
-            const tabs = ['home', 'gesah', 'kontak', 'riwayat'];
+            const tabs = ['home', 'layanan', 'gesah', 'kontak', 'riwayat'];
+            if (!tabs.includes(tabName)) return;
+            document.body.classList.toggle('on-ios-home', tabName === 'home');
             tabs.forEach(t => {
                 const sec = document.getElementById(`tab-${t}`);
                 const nav = document.getElementById(`nav-${t}`);
-                if (t === tabName) {
-                    sec.classList.remove('hidden');
-                    nav.className = 'nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-emerald-700 bg-emerald-50 font-extrabold transition relative';
-                } else {
-                    sec.classList.add('hidden');
-                    nav.className = 'nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:bg-slate-50 font-bold transition relative';
+                if (sec) sec.classList.toggle('hidden', t !== tabName);
+                if (nav) {
+                    nav.classList.toggle('ios-nav-active', t === tabName);
+                    nav.setAttribute('aria-current', t === tabName ? 'page' : 'false');
                 }
             });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.scrollTo({ top: 0, behavior: 'instant' });
             if (tabName === 'riwayat') renderHistory();
         }
 
@@ -1421,15 +1571,14 @@
                 const clonedDocument = document.documentElement.cloneNode(true);
                 const clonedData = clonedDocument.querySelector('#siTengoroPhotoData');
                 clonedData.textContent = JSON.stringify(contactPhotoCache).replace(/</g, '\\u003c');
-                for (const name of ['home', 'gesah', 'kontak', 'riwayat']) {
+                clonedDocument.querySelector('body')?.classList.add('on-ios-home');
+                const clonedContactContainer = clonedDocument.querySelector('#contactsContainer');
+                if (clonedContactContainer) clonedContactContainer.innerHTML = ''; // Render ulang sesuai status admin saat aplikasi dibuka.
+                for (const name of ['home', 'layanan', 'gesah', 'kontak', 'riwayat']) {
                     const sec = clonedDocument.querySelector(`#tab-${name}`);
                     const nav = clonedDocument.querySelector(`#nav-${name}`);
                     if (sec) sec.classList.toggle('hidden', name !== 'home');
-                    if (nav) {
-                        nav.classList.toggle('bg-emerald-50', name === 'home');
-                        nav.classList.toggle('text-emerald-700', name === 'home');
-                        nav.classList.toggle('text-slate-500', name !== 'home');
-                    }
+                    if (nav) nav.classList.toggle('ios-nav-active', name === 'home');
                 }
                 const fullHtml = '<!DOCTYPE html>\n' + clonedDocument.outerHTML;
                 const blob = new Blob([fullHtml], {type:'text/html;charset=utf-8'});
@@ -1794,8 +1943,8 @@
                 description: "Layanan Administrasi Desa & Gesah Warga Dusun Tengororejo, Ds. Songgon, Kec. Songgon by Cak Riyan",
                 start_url: window.location.href,
                 display: "standalone",
-                background_color: "#064e3b",
-                theme_color: "#047857",
+                background_color: "#0b2854",
+                theme_color: "#0b2854",
                 orientation: "portrait"
             };
             const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
