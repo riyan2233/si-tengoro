@@ -1473,10 +1473,11 @@
 
         function logoutAdmin() {
             adminUnlockedUntil = 0;
-            initContactPhotos(); // Publik kembali melihat foto yang telah dipublikasikan.
+            // Jangan reset foto saat logout: mode baca tetap menampilkan foto yang
+            // sebelumnya diunggah oleh admin (termasuk yang belum diekspor).
             updateAdminUI();
             renderContacts();
-            showToast('Berhasil keluar dari mode admin');
+            showToast('Admin keluar. Foto kontak tetap tampil.');
         }
 
         function updateAdminUI() {
@@ -1486,8 +1487,8 @@
                 document.getElementById(id).hidden = !active;
             }
             document.getElementById('adminPhotoDescription').textContent = active
-              ? 'Anda dapat mengganti foto semua kontak. Foto tersimpan lokal terlebih dahulu. Klik Unduh HTML dengan Foto, kemudian unggah hasilnya ke GitHub untuk ditampilkan ke semua warga.'
-              : 'Foto kontak dapat dilihat semua warga. Hanya pengelola yang login sebagai admin yang dapat mengunggah, mengganti atau menghapus foto.';
+              ? 'Foto tetap tampil setelah Anda keluar admin atau membuka ulang halaman pada browser ini. Agar terlihat di semua HP warga, klik Unduh HTML dengan Foto lalu unggah index.html ke GitHub dan tunggu Vercel selesai memperbarui website.'
+              : 'Foto kontak tetap terlihat setelah admin keluar. Hanya admin yang dapat mengganti foto. Agar perubahan terlihat di HP warga lainnya, admin perlu menerbitkan HTML yang sudah berisi foto ke GitHub.';
         }
 
         document.addEventListener('keydown', e => {
@@ -1497,32 +1498,84 @@
             if (adminUnlockedUntil && !isPhotoAdmin()) logoutAdmin();
         }, 60000);
 
-        // Foto disimpan LOKAL di browser. Tombol export menanam semua foto ke HTML
-        // agar dapat dipublikasikan melalui repository GitHub tanpa mengganti database.
-        const CONTACT_PHOTO_KEY = 'si_tengoro_contact_photos_v2';
+        // Foto lokal untuk preview: tetap terlihat oleh pengunjung browser INI,
+        // walau admin sudah logout atau halaman dimuat ulang.
+        // Untuk semua warga/perangkat, terbitkan file HTML hasil ekspor ke GitHub.
+        const CONTACT_PHOTO_KEY = 'si_tengoro_contact_photos_v3';
+        const CONTACT_PHOTO_LEGACY_KEY = 'si_tengoro_contact_photos_v2';
         let contactPhotoCache = {};
 
+        function publishedPhotoRevision() {
+            // Sidik data foto bawaan. Jika versi baru dipublikasikan di GitHub,
+            // draft lama di browser tidak boleh menimpa foto yang lebih baru.
+            const content = document.getElementById('siTengoroPhotoData')?.textContent || '{}';
+            let hash = 2166136261;
+            for (let i = 0; i < content.length; i++) {
+                hash ^= content.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            return (hash >>> 0).toString(16);
+        }
+
         function initContactPhotos() {
-            // Pengunjung hanya melihat foto yang sudah diterbitkan dalam file HTML.
+            // Selalu muat foto terbitan untuk semua pengunjung, lalu overlay draft
+            // lokal yang masih sesuai dengan versi yang sedang ditampilkan.
+            let published = {};
             try {
-                const defaults = JSON.parse(document.getElementById('siTengoroPhotoData').textContent || '{}');
-                contactPhotoCache = defaults && typeof defaults === 'object' ? {...defaults} : {};
-            } catch (_) { contactPhotoCache = {}; }
+                const defaults = JSON.parse(document.getElementById('siTengoroPhotoData')?.textContent || '{}');
+                if (defaults && typeof defaults === 'object' && !Array.isArray(defaults)) published = defaults;
+            } catch (_) { /* abaikan data terbitan yang rusak */ }
+            contactPhotoCache = {...published};
+            try {
+                const revision = publishedPhotoRevision();
+                let saved = JSON.parse(localStorage.getItem(CONTACT_PHOTO_KEY) || 'null');
+                if (!saved) {
+                    // Migrasi draft dari aplikasi lama; supaya foto yang pernah
+                    // diunggah tidak hilang setelah pembaruan aplikasi.
+                    const legacy = JSON.parse(localStorage.getItem(CONTACT_PHOTO_LEGACY_KEY) || 'null');
+                    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+                        saved = {publishedRevision: revision, photos: legacy};
+                        try {
+                            localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify(saved));
+                            localStorage.removeItem(CONTACT_PHOTO_LEGACY_KEY);
+                        } catch (_) { /* mode tanpa penyimpanan tetap bisa dibuka */ }
+                    }
+                }
+                if (saved && saved.publishedRevision === revision && saved.photos && typeof saved.photos === 'object') {
+                    const validIDs = new Set(CONTACTS.map(c => c.id));
+                    for (const [id, photo] of Object.entries(saved.photos)) {
+                        if (validIDs.has(id) && (photo === null || (typeof photo === 'string' && photo.startsWith('data:image/jpeg;base64,')))) {
+                            contactPhotoCache[id] = photo;
+                        }
+                    }
+                }
+            } catch (_) { /* browser privat atau penyimpanan tidak tersedia */ }
         }
 
         function loadAdminPhotoDrafts() {
-            if (!isPhotoAdmin()) return;
-            try {
-                const stored = JSON.parse(localStorage.getItem(CONTACT_PHOTO_KEY) || '{}');
-                if (stored && typeof stored === 'object') contactPhotoCache = {...contactPhotoCache, ...stored};
-            } catch (_) { /* Browser membatasi localStorage; pratinjau tetap bisa digunakan. */ }
+            // Draft sudah dimuat di awal untuk semua pengunjung: tidak perlu login
+            // untuk melihat hasil unggahan foto.
         }
 
         function persistContactPhotos() {
             if (!requirePhotoAdmin()) return;
-            try { localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify(contactPhotoCache)); }
-            catch (_) { showToast('Foto tampil, tetapi penyimpanan browser penuh. Gunakan tombol Unduh HTML.'); }
+            try {
+                localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify({
+                    publishedRevision: publishedPhotoRevision(), photos: contactPhotoCache
+                }));
+                localStorage.removeItem(CONTACT_PHOTO_LEGACY_KEY);
+            } catch (_) {
+                showToast('Penyimpanan browser penuh. Foto sementara tampil, segera Unduh HTML dengan Foto.');
+            }
         }
+
+        // Sinkronkan perubahan foto antar-tab pada browser yang sama.
+        window.addEventListener('storage', (event) => {
+            if (event.key === CONTACT_PHOTO_KEY || event.key === CONTACT_PHOTO_LEGACY_KEY) {
+                initContactPhotos();
+                renderContacts();
+            }
+        });
 
         async function uploadContactPhoto(contactId, input) {
             if (!requirePhotoAdmin()) { if (input) input.value=''; return; }
@@ -1546,7 +1599,7 @@
                     ctx.drawImage(img, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
                     contactPhotoCache[contactId] = canvas.toDataURL('image/jpeg', 0.82);
                     persistContactPhotos(); renderContacts();
-                    showToast('Foto berhasil dipasang. Unduh HTML untuk dipublikasikan.');
+                    showToast('Foto tersimpan dan tetap tampil setelah logout. Untuk semua warga, terbitkan HTML ke GitHub.');
                 } catch (e) { showToast('Foto gagal diproses. Coba foto lain.'); }
                 finally {URL.revokeObjectURL(url); input.value='';}
             };
@@ -1558,7 +1611,7 @@
             if (!requirePhotoAdmin()) return;
             if (!CONTACTS.some(c => c.id === contactId)) return;
             contactPhotoCache[contactId] = null;
-            persistContactPhotos(); renderContacts(); showToast('Foto dihapus pada perangkat ini');
+            persistContactPhotos(); renderContacts(); showToast('Foto dihapus. Perubahan tetap terlihat setelah logout.');
         }
 
         function exportHtmlWithPhotos() {
