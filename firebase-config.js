@@ -1,9 +1,9 @@
 
 window.SI_TENGORO_FIREBASE_CONFIG = {
-  apiKey: "ISI_DARI_FIREBASE",
-  authDomain: "ISI_DARI_FIREBASE",
+  apiKey: "API_KEY_ASLI",
+  authDomain: "AUTH_DOMAIN_ASLI",
   projectId: "si-tengoro",
-  storageBucket: "ISI_DARI_FIREBASE",
-  messagingSenderId: "ISI_DARI_FIREBASE",
-  appId: "ISI_DARI_FIREBASE"
+  storageBucket: "STORAGE_BUCKET_ASLI",
+  messagingSenderId: "SENDER_ID_ASLI",
+  appId: "APP_ID_ASLI"
 };
