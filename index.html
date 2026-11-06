@@ -174,6 +174,27 @@
         @media (max-width:520px) {.site-name small {font-size:9px;} .site-title {font-size:16px;} .site-brandline {padding:12px 12px 10px;gap:8px;} .site-brand-logo {width:45px;height:45px;} .site-brand-logo svg {width:31px;height:31px;} .site-install-btn span {display:none;} .site-search-wrap {margin:0 12px 10px;} .site-statusline {padding:7px 12px;font-size:9px;} .site-statusline #liveClock {font-size:9px;} .app-shell > main {padding:13px 12px 24px;} .hero-card {display:block;padding:14px;} .hero-copy h2 {font-size:22px;margin:10px 0 7px;} .hero-art {height:130px;margin-top:14px;} .portal-actions {gap:6px;} .portal-actions button {padding:10px 3px;} .portal-actions button strong {font-size:10px;} .portal-actions button small {font-size:9px;} .portal-actions button span {min-width:32px;height:32px;font-size:18px;} }
         @media (max-width:355px) {.site-name small{display:none;} .site-title{font-size:14px;} .site-online{font-size:8px;padding:2px 4px;} .site-actions{gap:3px;} .site-round-btn,.site-install-btn{font-size:10px;padding:5px 6px;} .service-grid {grid-template-columns:repeat(2,minmax(0,1fr));} .contact-photo{width:67px;height:77px;} .contact-actions a,.contact-actions button{font-size:10px;} }
     
+
+        /* Pengelola kontak: hanya tombol pengelola yang tampil setelah login. */
+        .admin-login-button {border:1px solid #d9c25e;background:#fff;border-radius:11px;padding:9px 13px;font-weight:800;font-size:12px;white-space:nowrap;color:#5e4d07;}
+        .admin-photo-actionbar {display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+        .admin-photo-actionbar button {min-height:39px;}
+        .admin-only[hidden], [hidden].admin-only {display:none!important;}
+        .admin-dialog-backdrop[hidden] {display:none!important;}
+        .admin-dialog-backdrop {position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(21,28,23,.73);backdrop-filter:blur(3px);}
+        .admin-dialog-panel {width:min(100%,390px);background:#fff;border-radius:21px;padding:23px 20px;box-shadow:0 25px 70px rgba(0,0,0,.23);position:relative;}
+        .admin-dialog-panel h2 {font-size:20px;font-weight:850;color:#1e281d;margin:6px 0 5px;}
+        .admin-dialog-panel p {font-size:12px;color:#687165;line-height:1.6;margin:0 0 17px;}
+        .admin-dialog-panel label {font-size:12px;color:#2c352d;display:block;font-weight:800;margin:11px 0 6px;}
+        .admin-dialog-panel input {display:block;width:100%;border-radius:11px;border:1px solid #d9ddda;background:#fbfbfa;font-size:14px;padding:12px 13px;outline:0;color:#222;}
+        .admin-dialog-panel input:focus {border-color:#b78b06;box-shadow:0 0 0 3px #fff3bf;}
+        .admin-dialog-actions {display:flex;gap:8px;margin-top:17px;}
+        .admin-dialog-actions button {padding:12px 15px;border-radius:11px;font-size:13px;font-weight:800;flex:1;}
+        .admin-dialog-submit {background:#ffd51e;color:#242424;}
+        .admin-dialog-cancel {background:#f1f2f0;color:#39423c;}
+        .admin-error {min-height:18px;color:#b42318;font-size:11px;font-weight:700;margin-top:9px;}
+        .admin-photo-status {font-size:11px;font-weight:800;color:#5a510e;background:#fff0a5;border-radius:9px;padding:7px 9px;}
+
     </style>
 </head>
 <body class="min-h-screen flex justify-center bg-slate-200 selection:bg-emerald-600 selection:text-white">
@@ -549,10 +570,15 @@
 
                 <div class="photo-editor-info">
                     <div>
-                        <strong>📷 Foto profil setiap kontak</strong>
-                        <p>Klik <b>Unggah Foto</b> pada kontak. Hasil langsung tampil di perangkat ini. Untuk menampilkan foto bagi semua warga, gunakan <b>Unduh HTML dengan Foto</b> lalu unggah file tersebut ke GitHub.</p>
+                        <strong>🔐 Pengelolaan Foto Kontak</strong>
+                        <p id="adminPhotoDescription">Foto kontak dapat dilihat semua warga. Hanya pengelola yang login sebagai admin yang dapat mengunggah, mengganti atau menghapus foto.</p>
                     </div>
-                    <button type="button" onclick="exportHtmlWithPhotos()" class="export-photo-btn">⬇ Unduh HTML dengan Foto</button>
+                    <div class="admin-photo-actionbar">
+                        <span id="adminPhotoStatus" class="admin-photo-status admin-only" hidden>✓ Admin aktif</span>
+                        <button type="button" id="adminLoginButton" onclick="openAdminLogin()" class="admin-login-button">🔒 Masuk Admin</button>
+                        <button type="button" id="adminExportButton" onclick="exportHtmlWithPhotos()" class="export-photo-btn admin-only" hidden>⬇ Unduh HTML dengan Foto</button>
+                        <button type="button" id="adminLogoutButton" onclick="logoutAdmin()" class="admin-login-button admin-only" hidden>Keluar Admin</button>
+                    </div>
                 </div>
                 <!-- Container Daftar Kontak -->
                 <div id="contactsContainer" class="space-y-2.5">
@@ -792,6 +818,27 @@
             <button onclick="closeInstallModal()" class="w-full py-3 bg-slate-800 text-white font-bold text-xs rounded-xl">
                 Mengerti, Tutup Panduan
             </button>
+        </div>
+    </div>
+
+
+    <!-- Dialog login pengelola foto; identitas tidak ditampilkan pada halaman publik. -->
+    <div id="adminLoginDialog" class="admin-dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="adminDialogTitle" hidden onclick="if(event.target===this)closeAdminLogin()">
+        <div class="admin-dialog-panel">
+            <div style="font-size:30px;line-height:1" aria-hidden="true">🔐</div>
+            <h2 id="adminDialogTitle">Login Admin SI-TENGORO</h2>
+            <p>Pengelolaan foto perangkat hanya tersedia untuk admin.</p>
+            <form id="adminLoginForm" onsubmit="submitAdminLogin(event)" autocomplete="off">
+                <label for="adminLoginUsername">Username admin</label>
+                <input type="text" id="adminLoginUsername" name="admin_user" placeholder="Masukkan username" autocapitalize="off" spellcheck="false" autocomplete="off" required maxlength="80">
+                <label for="adminLoginPassword">Kata sandi</label>
+                <input type="password" id="adminLoginPassword" name="admin_password" placeholder="Masukkan kata sandi" autocomplete="off" required maxlength="128">
+                <div id="adminLoginError" class="admin-error" role="alert" aria-live="polite"></div>
+                <div class="admin-dialog-actions">
+                    <button class="admin-dialog-cancel" type="button" onclick="closeAdminLogin()">Batal</button>
+                    <button class="admin-dialog-submit" id="adminLoginSubmit" type="submit">Masuk</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1124,6 +1171,7 @@
             updateClock();
             setInterval(updateClock, 15000);
             initContactPhotos();
+            updateAdminUI();
             renderContacts();
             populateGesahTargetDropdown();
             updateGesahTargetSuggestion();
@@ -1191,28 +1239,143 @@
             return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         }
 
+
+        // Admin pengelolaan foto: login hanya membatasi antarmuka aplikasi statis.
+        // Untuk akses yang benar-benar aman di internet, kredensial harus diverifikasi
+        // server-side dan hak unggah harus dijaga dengan backend/aturan penyimpanan.
+        // Tidak ada username ataupun password asli yang dituliskan sebagai teks di halaman.
+        const ADMIN_USER_SHA256 = '7529c0c2cd5aab652d47dd037bb9e66bc4829f77e6feb83c6fbcc3ca93c59a4e';
+        const ADMIN_PIN_SALT_HEX = 'cc41e22ba7ed83f4af141b335572507d';
+        const ADMIN_PIN_PBKDF2_SHA256 = 'c9d21b349928ec1231498e598d935002376589301ccf93e1fc486cfacc3d3095';
+        const ADMIN_PIN_ITERATIONS = 220000;
+        const ADMIN_SESSION_MS = 30 * 60 * 1000;
+        let adminUnlockedUntil = 0;
+
+        function isPhotoAdmin() {
+            return adminUnlockedUntil > Date.now();
+        }
+
+        function requirePhotoAdmin() {
+            if (isPhotoAdmin()) return true;
+            adminUnlockedUntil = 0;
+            updateAdminUI();
+            showToast('Masuk sebagai admin untuk mengelola foto');
+            return false;
+        }
+
+        function openAdminLogin() {
+            if (isPhotoAdmin()) return;
+            const dialog = document.getElementById('adminLoginDialog');
+            document.getElementById('adminLoginError').textContent='';
+            document.getElementById('adminLoginForm').reset();
+            dialog.hidden = false;
+            setTimeout(() => document.getElementById('adminLoginUsername')?.focus(), 30);
+        }
+
+        function closeAdminLogin() {
+            document.getElementById('adminLoginDialog').hidden = true;
+            document.getElementById('adminLoginForm').reset();
+            document.getElementById('adminLoginError').textContent='';
+        }
+
+        async function sha256Hex(s) {
+            const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+            return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        async function deriveAdminPinHex(password) {
+            const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+            const salt = new Uint8Array(ADMIN_PIN_SALT_HEX.match(/../g).map(hex => parseInt(hex,16)));
+            const bits = await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:ADMIN_PIN_ITERATIONS,hash:'SHA-256'},key,256);
+            return Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        async function submitAdminLogin(e) {
+            e.preventDefault();
+            const submit = document.getElementById('adminLoginSubmit');
+            const error = document.getElementById('adminLoginError');
+            const username = document.getElementById('adminLoginUsername').value.trim().toLowerCase();
+            const password = document.getElementById('adminLoginPassword').value;
+            submit.disabled = true;
+            submit.textContent = 'Memeriksa...';
+            error.textContent = '';
+            try {
+                if (!window.crypto || !window.crypto.subtle) throw new Error('secure-context');
+                const [usernameDigest,passwordDigest] = await Promise.all([sha256Hex(username),deriveAdminPinHex(password)]);
+                if (usernameDigest !== ADMIN_USER_SHA256 || passwordDigest !== ADMIN_PIN_PBKDF2_SHA256) {
+                    error.textContent = 'Username atau kata sandi tidak sesuai.';
+                    return;
+                }
+                adminUnlockedUntil = Date.now() + ADMIN_SESSION_MS;
+                loadAdminPhotoDrafts();
+                closeAdminLogin();
+                updateAdminUI();
+                renderContacts();
+                showToast('Berhasil login admin. Pengelolaan foto aktif.');
+            } catch (err) {
+                error.textContent = err?.message === 'secure-context' ? 'Login butuh HTTPS atau localhost.' : 'Tidak dapat memeriksa login. Coba kembali.';
+            } finally {
+                submit.disabled = false;
+                submit.textContent = 'Masuk';
+                document.getElementById('adminLoginPassword').value='';
+            }
+        }
+
+        function logoutAdmin() {
+            adminUnlockedUntil = 0;
+            initContactPhotos(); // Publik kembali melihat foto yang telah dipublikasikan.
+            updateAdminUI();
+            renderContacts();
+            showToast('Berhasil keluar dari mode admin');
+        }
+
+        function updateAdminUI() {
+            const active = isPhotoAdmin();
+            document.getElementById('adminLoginButton').hidden = active;
+            for (const id of ['adminExportButton','adminLogoutButton','adminPhotoStatus']) {
+                document.getElementById(id).hidden = !active;
+            }
+            document.getElementById('adminPhotoDescription').textContent = active
+              ? 'Anda dapat mengganti foto semua kontak. Foto tersimpan lokal terlebih dahulu. Klik Unduh HTML dengan Foto, kemudian unggah hasilnya ke GitHub untuk ditampilkan ke semua warga.'
+              : 'Foto kontak dapat dilihat semua warga. Hanya pengelola yang login sebagai admin yang dapat mengunggah, mengganti atau menghapus foto.';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !document.getElementById('adminLoginDialog').hidden) closeAdminLogin();
+        });
+        setInterval(() => {
+            if (adminUnlockedUntil && !isPhotoAdmin()) logoutAdmin();
+        }, 60000);
+
         // Foto disimpan LOKAL di browser. Tombol export menanam semua foto ke HTML
         // agar dapat dipublikasikan melalui repository GitHub tanpa mengganti database.
         const CONTACT_PHOTO_KEY = 'si_tengoro_contact_photos_v2';
         let contactPhotoCache = {};
 
         function initContactPhotos() {
+            // Pengunjung hanya melihat foto yang sudah diterbitkan dalam file HTML.
             try {
                 const defaults = JSON.parse(document.getElementById('siTengoroPhotoData').textContent || '{}');
-                contactPhotoCache = defaults && typeof defaults === 'object' ? defaults : {};
+                contactPhotoCache = defaults && typeof defaults === 'object' ? {...defaults} : {};
             } catch (_) { contactPhotoCache = {}; }
+        }
+
+        function loadAdminPhotoDrafts() {
+            if (!isPhotoAdmin()) return;
             try {
                 const stored = JSON.parse(localStorage.getItem(CONTACT_PHOTO_KEY) || '{}');
                 if (stored && typeof stored === 'object') contactPhotoCache = {...contactPhotoCache, ...stored};
-            } catch (_) { /* localStorage tidak tersedia, fitur preview tetap bekerja */ }
+            } catch (_) { /* Browser membatasi localStorage; pratinjau tetap bisa digunakan. */ }
         }
 
         function persistContactPhotos() {
+            if (!requirePhotoAdmin()) return;
             try { localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify(contactPhotoCache)); }
             catch (_) { showToast('Foto tampil, tetapi penyimpanan browser penuh. Gunakan tombol Unduh HTML.'); }
         }
 
         async function uploadContactPhoto(contactId, input) {
+            if (!requirePhotoAdmin()) { if (input) input.value=''; return; }
             const file = input && input.files && input.files[0];
             if (!file) return;
             if (!CONTACTS.some(c => c.id === contactId)) return;
@@ -1222,6 +1385,7 @@
             const img = new Image();
             img.onload = () => {
                 try {
+                    if (!requirePhotoAdmin()) return;
                     const canvas = document.createElement('canvas');
                     canvas.width = 360; canvas.height = 400;
                     const ctx = canvas.getContext('2d');
@@ -1241,12 +1405,14 @@
         }
 
         function removeContactPhoto(contactId) {
+            if (!requirePhotoAdmin()) return;
             if (!CONTACTS.some(c => c.id === contactId)) return;
             contactPhotoCache[contactId] = null;
             persistContactPhotos(); renderContacts(); showToast('Foto dihapus pada perangkat ini');
         }
 
         function exportHtmlWithPhotos() {
+            if (!requirePhotoAdmin()) return;
             // Data embedded mengambil versi lokal saat ekspor; seluruh kode layanan dan formulir tetap ada.
             const dataElement = document.getElementById('siTengoroPhotoData');
             if (!dataElement) return;
@@ -1328,12 +1494,12 @@
                                 <span class="contact-phone">${escapeContactText(c.phoneDisplay)}</span>
                             </div>
                         </div>
-                        <div class="contact-photo-edit">
+                        ${isPhotoAdmin() ? `<div class="contact-photo-edit">
                             <label class="contact-upload-label" for="contact-image-${c.id}">📷 ${photo ? 'Ganti Foto' : 'Unggah Foto'}</label>
                             <input id="contact-image-${c.id}" type="file" accept="image/jpeg,image/png,image/webp" onchange="uploadContactPhoto('${c.id}',this)" class="sr-only" aria-label="Unggah foto ${safeName}">
                             ${photo ? `<button type="button" class="contact-photo-clear" onclick="removeContactPhoto('${c.id}')">Hapus Foto</button>` : ''}
                             <span class="contact-photo-help">JPG/PNG/WEBP, maks. 10 MB</span>
-                        </div>
+                        </div>` : ''}
                         <div class="contact-actions">
                             <a href="https://wa.me/${c.phoneWA}?text=${waText}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>
                             <a href="tel:${c.phoneDisplay}">☎ Telepon</a>
