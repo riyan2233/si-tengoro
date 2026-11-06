@@ -706,7 +706,8 @@
                     <div class="admin-photo-actionbar">
                         <span id="adminPhotoStatus" class="admin-photo-status admin-only" hidden>✓ Admin aktif</span>
                         <button type="button" id="adminLoginButton" onclick="openAdminLogin()" class="admin-login-button">🔒 Masuk Admin</button>
-                        <button type="button" id="adminExportButton" onclick="exportHtmlWithPhotos()" class="export-photo-btn admin-only" hidden>⬇ Unduh HTML dengan Foto</button>
+                        <button type="button" id="adminSyncButton" onclick="migrateLocalPhotos()" class="export-photo-btn admin-only" hidden>☁ Sinkronkan Foto Lama</button>
+                        <button type="button" id="adminExportButton" onclick="exportHtmlWithPhotos()" class="admin-login-button admin-only" hidden>⬇ Cadangan HTML</button>
                         <button type="button" id="adminLogoutButton" onclick="logoutAdmin()" class="admin-login-button admin-only" hidden>Keluar Admin</button>
                     </div>
                 </div>
@@ -935,10 +936,10 @@
             <h2 id="adminDialogTitle">Login Admin SI-TENGORO</h2>
             <p>Pengelolaan foto perangkat hanya tersedia untuk admin.</p>
             <form id="adminLoginForm" onsubmit="submitAdminLogin(event)" autocomplete="off">
-                <label for="adminLoginUsername">Username admin</label>
-                <input type="text" id="adminLoginUsername" name="admin_user" placeholder="Masukkan username" autocapitalize="off" spellcheck="false" autocomplete="off" required maxlength="80">
+                <label for="adminLoginUsername">Email admin Firebase</label>
+                <input type="email" id="adminLoginUsername" name="admin_user" placeholder="Email yang didaftarkan di Firebase Authentication" autocapitalize="off" spellcheck="false" autocomplete="username" required maxlength="120">
                 <label for="adminLoginPassword">Kata sandi</label>
-                <input type="password" id="adminLoginPassword" name="admin_password" placeholder="Masukkan kata sandi" autocomplete="off" required maxlength="128">
+                <input type="password" id="adminLoginPassword" name="admin_password" placeholder="Kata sandi Firebase" autocomplete="current-password" required maxlength="128">
                 <div id="adminLoginError" class="admin-error" role="alert" aria-live="polite"></div>
                 <div class="admin-dialog-actions">
                     <button class="admin-dialog-cancel" type="button" onclick="closeAdminLogin()">Batal</button>
@@ -962,8 +963,21 @@
         <span id="toastText">Berhasil!</span>
     </div>
 
-    <!-- Data foto ditanam ke HTML saat tombol ekspor digunakan. Foto baru di browser tetap lokal sampai file dipublikasikan. -->
+    <!-- Cadangan foto edisi lama (jika ada). Foto aktif disimpan di Cloud Firestore. -->
     <script id="siTengoroPhotoData" type="application/json">{}</script>
+
+    <!-- Firebase Web App: si-tengoro (konfigurasi publik dari Firebase Console). -->
+    <script>
+      window.SITCloud = {configured:false,isAdmin:false,status:'not-configured'};
+      window.SI_TENGORO_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAagNiGCHPV8O4iPyJxYHyh13xq6XieN4A",
+        authDomain: "si-tengoro.firebaseapp.com",
+        projectId: "si-tengoro",
+        storageBucket: "si-tengoro.firebasestorage.app",
+        messagingSenderId: "394967187709",
+        appId: "1:394967187709:web:bf1f0952e05b8fa96f7e94"
+      };
+    </script>
 
     <!-- ================================================================= -->
     <!-- JAVASCRIPT UTAMA (Sangat Ringan & Cepat untuk Semua HP Android)   -->
@@ -1390,26 +1404,21 @@
         }
 
 
-        // Admin pengelolaan foto: login hanya membatasi antarmuka aplikasi statis.
-        // Untuk akses yang benar-benar aman di internet, kredensial harus diverifikasi
-        // server-side dan hak unggah harus dijaga dengan backend/aturan penyimpanan.
-        // Tidak ada username ataupun password asli yang dituliskan sebagai teks di halaman.
-        const ADMIN_USER_SHA256 = '7529c0c2cd5aab652d47dd037bb9e66bc4829f77e6feb83c6fbcc3ca93c59a4e';
-        const ADMIN_PIN_SALT_HEX = 'cc41e22ba7ed83f4af141b335572507d';
-        const ADMIN_PIN_PBKDF2_SHA256 = 'c9d21b349928ec1231498e598d935002376589301ccf93e1fc486cfacc3d3095';
-        const ADMIN_PIN_ITERATIONS = 220000;
-        const ADMIN_SESSION_MS = 30 * 60 * 1000;
-        let adminUnlockedUntil = 0;
+        // ---------------------------------------------------------------
+        // LOGIN AMAN: Firebase Authentication + daftar UID di Firestore.
+        // Foto diterbitkan sekali di Firestore, tidak perlu commit HTML ulang.
+        // ---------------------------------------------------------------
+        let contactPhotoCache = {};
+        let legacyPhotoCache = {};
+        let cloudPhotoLoaded = false;
 
         function isPhotoAdmin() {
-            return adminUnlockedUntil > Date.now();
+            return window.SITCloud?.isAdmin === true;
         }
 
         function requirePhotoAdmin() {
             if (isPhotoAdmin()) return true;
-            adminUnlockedUntil = 0;
-            updateAdminUI();
-            showToast('Masuk sebagai admin untuk mengelola foto');
+            showToast('Login admin Firebase terlebih dahulu');
             return false;
         }
 
@@ -1428,221 +1437,222 @@
             document.getElementById('adminLoginError').textContent='';
         }
 
-        async function sha256Hex(s) {
-            const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-            return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2,'0')).join('');
-        }
-
-        async function deriveAdminPinHex(password) {
-            const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-            const salt = new Uint8Array(ADMIN_PIN_SALT_HEX.match(/../g).map(hex => parseInt(hex,16)));
-            const bits = await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:ADMIN_PIN_ITERATIONS,hash:'SHA-256'},key,256);
-            return Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2,'0')).join('');
-        }
-
         async function submitAdminLogin(e) {
             e.preventDefault();
             const submit = document.getElementById('adminLoginSubmit');
             const error = document.getElementById('adminLoginError');
-            const username = document.getElementById('adminLoginUsername').value.trim().toLowerCase();
+            const email = document.getElementById('adminLoginUsername').value.trim();
             const password = document.getElementById('adminLoginPassword').value;
             submit.disabled = true;
-            submit.textContent = 'Memeriksa...';
+            submit.textContent = 'Memeriksa Firebase...';
             error.textContent = '';
             try {
-                if (!window.crypto || !window.crypto.subtle) throw new Error('secure-context');
-                const [usernameDigest,passwordDigest] = await Promise.all([sha256Hex(username),deriveAdminPinHex(password)]);
-                if (usernameDigest !== ADMIN_USER_SHA256 || passwordDigest !== ADMIN_PIN_PBKDF2_SHA256) {
-                    error.textContent = 'Username atau kata sandi tidak sesuai.';
-                    return;
-                }
-                adminUnlockedUntil = Date.now() + ADMIN_SESSION_MS;
-                loadAdminPhotoDrafts();
+                if (!window.SITCloud?.configured) throw new Error('Konfigurasi Firebase belum diisi di index.html.');
+                await window.SITCloud.signIn(email, password);
                 closeAdminLogin();
                 updateAdminUI();
                 renderContacts();
-                showToast('Berhasil login admin. Pengelolaan foto aktif.');
+                showToast('Login admin Firebase berhasil.');
             } catch (err) {
-                error.textContent = err?.message === 'secure-context' ? 'Login butuh HTTPS atau localhost.' : 'Tidak dapat memeriksa login. Coba kembali.';
+                if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password' || err?.code === 'auth/user-not-found') {
+                    error.textContent = 'Email atau kata sandi Firebase salah.';
+                } else if (err?.code === 'permission-denied') {
+                    error.textContent = 'Firestore menolak akses. Periksa Rules dan dokumen admins/UID.';
+                } else if (err?.code === 'auth/too-many-requests') {
+                    error.textContent = 'Terlalu banyak percobaan. Coba kembali nanti.';
+                } else {
+                    error.textContent = err?.message || 'Login gagal. Periksa pengaturan Firebase.';
+                }
             } finally {
                 submit.disabled = false;
                 submit.textContent = 'Masuk';
-                document.getElementById('adminLoginPassword').value='';
+                document.getElementById('adminLoginPassword').value = '';
             }
         }
 
-        function logoutAdmin() {
-            adminUnlockedUntil = 0;
-            // Jangan reset foto saat logout: mode baca tetap menampilkan foto yang
-            // sebelumnya diunggah oleh admin (termasuk yang belum diekspor).
-            updateAdminUI();
-            renderContacts();
-            showToast('Admin keluar. Foto kontak tetap tampil.');
+        async function logoutAdmin() {
+            try {
+                await window.SITCloud?.signOut();
+                showToast('Admin keluar. Foto yang tersimpan di Firestore tetap terlihat.');
+            } catch (err) {
+                showToast('Logout gagal. Periksa jaringan lalu coba lagi.');
+            }
+            updateAdminUI(); renderContacts();
         }
 
         function updateAdminUI() {
             const active = isPhotoAdmin();
-            document.getElementById('adminLoginButton').hidden = active;
-            for (const id of ['adminExportButton','adminLogoutButton','adminPhotoStatus']) {
-                document.getElementById(id).hidden = !active;
+            const loginButton = document.getElementById('adminLoginButton');
+            if (loginButton) loginButton.hidden = active;
+            for (const id of ['adminSyncButton','adminExportButton','adminLogoutButton','adminPhotoStatus']) {
+                const element = document.getElementById(id);
+                if (element) element.hidden = !active;
             }
-            document.getElementById('adminPhotoDescription').textContent = active
-              ? 'Foto tetap tampil setelah Anda keluar admin atau membuka ulang halaman pada browser ini. Agar terlihat di semua HP warga, klik Unduh HTML dengan Foto lalu unggah index.html ke GitHub dan tunggu Vercel selesai memperbarui website.'
-              : 'Foto kontak tetap terlihat setelah admin keluar. Hanya admin yang dapat mengganti foto. Agar perubahan terlihat di HP warga lainnya, admin perlu menerbitkan HTML yang sudah berisi foto ke GitHub.';
+            const description = document.getElementById('adminPhotoDescription');
+            const cloud = window.SITCloud;
+            if (!description) return;
+            if (!cloud?.configured) {
+                description.textContent = '⚠ Firebase belum dikonfigurasi. Isi apiKey, authDomain, projectId dan appId pada index.html, lalu unggah ke GitHub. Foto belum tersinkron online.';
+            } else if (cloud.status === 'error') {
+                description.textContent = '⚠ Koneksi Firestore gagal: ' + (cloud.errorMessage || 'Periksa Firestore Rules, internet dan konfigurasi Firebase.');
+            } else if (!cloudPhotoLoaded) {
+                description.textContent = '⏳ Menghubungkan foto kontak ke Firebase Firestore...';
+            } else if (active) {
+                description.textContent = '✅ Admin aktif. Unggah/ganti foto untuk menyimpan langsung ke Firestore. Foto akan terlihat di semua HP tanpa mengunggah HTML lagi. Gunakan Sinkronkan Foto Lama untuk menerbitkan foto yang dulu tersimpan di browser.';
+            } else {
+                description.textContent = '✅ Foto kontak bersumber dari Firebase Firestore dan dapat dilihat oleh semua warga, termasuk setelah admin logout. Hanya akun admin terverifikasi yang bisa mengubah foto.';
+            }
         }
 
+        window.onSICloudAuthChange = function () { updateAdminUI(); renderContacts(); };
+        window.onSICloudPhotos = function (photos) {
+            // Setelah server merespons, data server menjadi acuan tunggal.
+            cloudPhotoLoaded = true;
+            contactPhotoCache = {...photos};
+            renderContacts(); updateAdminUI();
+        };
+        window.onSICloudStatusChange = function () { updateAdminUI(); };
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && !document.getElementById('adminLoginDialog').hidden) closeAdminLogin();
         });
-        setInterval(() => {
-            if (adminUnlockedUntil && !isPhotoAdmin()) logoutAdmin();
-        }, 60000);
 
-        // Foto lokal untuk preview: tetap terlihat oleh pengunjung browser INI,
-        // walau admin sudah logout atau halaman dimuat ulang.
-        // Untuk semua warga/perangkat, terbitkan file HTML hasil ekspor ke GitHub.
-        const CONTACT_PHOTO_KEY = 'si_tengoro_contact_photos_v3';
-        const CONTACT_PHOTO_LEGACY_KEY = 'si_tengoro_contact_photos_v2';
-        let contactPhotoCache = {};
-
-        function publishedPhotoRevision() {
-            // Sidik data foto bawaan. Jika versi baru dipublikasikan di GitHub,
-            // draft lama di browser tidak boleh menimpa foto yang lebih baru.
-            const content = document.getElementById('siTengoroPhotoData')?.textContent || '{}';
-            let hash = 2166136261;
-            for (let i = 0; i < content.length; i++) {
-                hash ^= content.charCodeAt(i);
-                hash = Math.imul(hash, 16777619);
-            }
-            return (hash >>> 0).toString(16);
-        }
-
+        // Foto yang tersimpan di browser versi lama dibaca untuk cadangan saja.
+        // Tombol "Sinkronkan Foto Lama" menerbitkan cadangan tersebut ke Firestore.
         function initContactPhotos() {
-            // Selalu muat foto terbitan untuk semua pengunjung, lalu overlay draft
-            // lokal yang masih sesuai dengan versi yang sedang ditampilkan.
             let published = {};
             try {
                 const defaults = JSON.parse(document.getElementById('siTengoroPhotoData')?.textContent || '{}');
                 if (defaults && typeof defaults === 'object' && !Array.isArray(defaults)) published = defaults;
-            } catch (_) { /* abaikan data terbitan yang rusak */ }
-            contactPhotoCache = {...published};
+            } catch (_) {}
+            legacyPhotoCache = {...published};
             try {
-                const revision = publishedPhotoRevision();
-                let saved = JSON.parse(localStorage.getItem(CONTACT_PHOTO_KEY) || 'null');
+                let saved = JSON.parse(localStorage.getItem('si_tengoro_contact_photos_v3') || 'null');
                 if (!saved) {
-                    // Migrasi draft dari aplikasi lama; supaya foto yang pernah
-                    // diunggah tidak hilang setelah pembaruan aplikasi.
-                    const legacy = JSON.parse(localStorage.getItem(CONTACT_PHOTO_LEGACY_KEY) || 'null');
-                    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
-                        saved = {publishedRevision: revision, photos: legacy};
-                        try {
-                            localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify(saved));
-                            localStorage.removeItem(CONTACT_PHOTO_LEGACY_KEY);
-                        } catch (_) { /* mode tanpa penyimpanan tetap bisa dibuka */ }
-                    }
+                    const older = JSON.parse(localStorage.getItem('si_tengoro_contact_photos_v2') || 'null');
+                    if (older && typeof older === 'object') saved = {photos: older};
                 }
-                if (saved && saved.publishedRevision === revision && saved.photos && typeof saved.photos === 'object') {
-                    const validIDs = new Set(CONTACTS.map(c => c.id));
-                    for (const [id, photo] of Object.entries(saved.photos)) {
-                        if (validIDs.has(id) && (photo === null || (typeof photo === 'string' && photo.startsWith('data:image/jpeg;base64,')))) {
-                            contactPhotoCache[id] = photo;
+                if (saved?.photos && typeof saved.photos === 'object') {
+                    for (const c of CONTACTS) {
+                        const value = saved.photos[c.id];
+                        if (typeof value === 'string' && value.startsWith('data:image/jpeg;base64,')) {
+                            legacyPhotoCache[c.id] = value;
                         }
                     }
                 }
-            } catch (_) { /* browser privat atau penyimpanan tidak tersedia */ }
+            } catch (_) {}
+            // Foto lama hanya sebagai preview awal sampai hasil Firestore diperoleh.
+            contactPhotoCache = {...legacyPhotoCache};
         }
 
-        function loadAdminPhotoDrafts() {
-            // Draft sudah dimuat di awal untuk semua pengunjung: tidak perlu login
-            // untuk melihat hasil unggahan foto.
+        function processContactImage(img) {
+            const sizes = [[360,400],[320,356],[280,312],[240,267]];
+            for (const [width,height] of sizes) {
+                const canvas = document.createElement('canvas');
+                canvas.width=width; canvas.height=height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) throw new Error('Browser tidak mendukung pemrosesan foto.');
+                const scale = Math.max(width/img.width, height/img.height);
+                const w=img.width*scale, h=img.height*scale;
+                ctx.fillStyle = '#fafafa'; ctx.fillRect(0,0,width,height);
+                ctx.drawImage(img, (width-w)/2, (height-h)/2, w, h);
+                for (const quality of [0.83,0.72,0.60,0.45]) {
+                    const data = canvas.toDataURL('image/jpeg', quality);
+                    if (data.length <= 300000) return data;
+                }
+            }
+            throw new Error('Foto terlalu besar setelah dikompresi. Coba foto lain.');
         }
 
-        function persistContactPhotos() {
-            if (!requirePhotoAdmin()) return;
+        function compressImageURL(url) {
+            return new Promise((resolve,reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try { resolve(processContactImage(img)); }
+                    catch(e) { reject(e); }
+                };
+                img.onerror = () => reject(new Error('Foto tidak bisa dibuka.'));
+                img.src=url;
+            });
+        }
+
+        async function uploadContactPhoto(contactId,input) {
+            if (!requirePhotoAdmin()) { if(input) input.value=''; return; }
+            const file=input?.files?.[0];
+            if(!file || !CONTACTS.some(c => c.id===contactId)) return;
+            if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { showToast('Pilih JPG, PNG atau WEBP'); input.value=''; return; }
+            if (file.size > 10*1024*1024) { showToast('Foto maksimal 10 MB sebelum kompresi'); input.value=''; return; }
+            const url=URL.createObjectURL(file);
+            input.disabled=true;
             try {
-                localStorage.setItem(CONTACT_PHOTO_KEY, JSON.stringify({
-                    publishedRevision: publishedPhotoRevision(), photos: contactPhotoCache
-                }));
-                localStorage.removeItem(CONTACT_PHOTO_LEGACY_KEY);
-            } catch (_) {
-                showToast('Penyimpanan browser penuh. Foto sementara tampil, segera Unduh HTML dengan Foto.');
-            }
-        }
-
-        // Sinkronkan perubahan foto antar-tab pada browser yang sama.
-        window.addEventListener('storage', (event) => {
-            if (event.key === CONTACT_PHOTO_KEY || event.key === CONTACT_PHOTO_LEGACY_KEY) {
-                initContactPhotos();
+                showToast('Memproses dan menyimpan foto ke Firebase...');
+                const photo=await compressImageURL(url);
+                await window.SITCloud.savePhoto(contactId,photo);
+                contactPhotoCache[contactId]=photo;
                 renderContacts();
+                showToast('✅ Foto tersimpan online. Akan terlihat di HP warga.');
+            } catch(err) {
+                showToast('⚠ Foto gagal disimpan: '+(err?.code==='permission-denied'?'akses Firestore ditolak':(err?.message||'periksa jaringan')));
+            } finally {
+                URL.revokeObjectURL(url);
+                input.value=''; input.disabled=false;
             }
-        });
-
-        async function uploadContactPhoto(contactId, input) {
-            if (!requirePhotoAdmin()) { if (input) input.value=''; return; }
-            const file = input && input.files && input.files[0];
-            if (!file) return;
-            if (!CONTACTS.some(c => c.id === contactId)) return;
-            if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { showToast('Pilih foto JPG, PNG atau WEBP'); input.value=''; return; }
-            if (file.size > 10 * 1024 * 1024) { showToast('Ukuran foto maksimal 10 MB'); input.value=''; return; }
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                try {
-                    if (!requirePhotoAdmin()) return;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 360; canvas.height = 400;
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) throw new Error('canvas gagal');
-                    const scale = Math.max(canvas.width/img.width, canvas.height/img.height);
-                    const w = img.width * scale, h = img.height * scale;
-                    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
-                    contactPhotoCache[contactId] = canvas.toDataURL('image/jpeg', 0.82);
-                    persistContactPhotos(); renderContacts();
-                    showToast('Foto tersimpan dan tetap tampil setelah logout. Untuk semua warga, terbitkan HTML ke GitHub.');
-                } catch (e) { showToast('Foto gagal diproses. Coba foto lain.'); }
-                finally {URL.revokeObjectURL(url); input.value='';}
-            };
-            img.onerror = () => {URL.revokeObjectURL(url); input.value=''; showToast('File foto tidak dapat dibuka');};
-            img.src = url;
         }
 
-        function removeContactPhoto(contactId) {
+        async function removeContactPhoto(contactId) {
+            if (!requirePhotoAdmin() || !CONTACTS.some(c=>c.id===contactId)) return;
+            if (!confirm('Hapus foto kontak ini dari Firestore untuk semua warga?')) return;
+            try {
+                await window.SITCloud.removePhoto(contactId);
+                delete contactPhotoCache[contactId];
+                renderContacts();
+                showToast('Foto dihapus dari Firebase untuk semua pengguna.');
+            } catch(err) { showToast('Gagal menghapus foto: '+(err?.message||'periksa Rules')); }
+        }
+
+        async function migrateLocalPhotos() {
             if (!requirePhotoAdmin()) return;
-            if (!CONTACTS.some(c => c.id === contactId)) return;
-            contactPhotoCache[contactId] = null;
-            persistContactPhotos(); renderContacts(); showToast('Foto dihapus. Perubahan tetap terlihat setelah logout.');
+            if (!cloudPhotoLoaded) { showToast('Tunggu data Firestore selesai dimuat.'); return; }
+            const candidates = CONTACTS.filter(c => typeof legacyPhotoCache[c.id]==='string' && !contactPhotoCache[c.id]);
+            if (!candidates.length) { showToast('Tidak ada foto lama yang perlu disinkronkan.'); return; }
+            if (!confirm(`Terbitkan ${candidates.length} foto lama ke Firebase? Foto yang sudah tersimpan online tidak ditimpa.`)) return;
+            const button=document.getElementById('adminSyncButton');
+            if(button) button.disabled=true;
+            let done=0,failed=0;
+            for(const c of candidates) {
+                try {
+                    const photo=await compressImageURL(legacyPhotoCache[c.id]);
+                    await window.SITCloud.savePhoto(c.id,photo);
+                    contactPhotoCache[c.id]=photo;
+                    done++;
+                } catch(err) { failed++; console.warn('Gagal sinkron foto:',c.id,err?.code||err?.message); }
+            }
+            if(button) button.disabled=false;
+            renderContacts();
+            showToast(`Sinkron foto lama: ${done} berhasil, ${failed} gagal.`);
         }
 
         function exportHtmlWithPhotos() {
             if (!requirePhotoAdmin()) return;
-            // Data embedded mengambil versi lokal saat ekspor; seluruh kode layanan dan formulir tetap ada.
             const dataElement = document.getElementById('siTengoroPhotoData');
             if (!dataElement) return;
             try {
-                // Ekspor clone agar halaman pengunjung selalu mulai di Beranda, bukan tab editor saat proses ekspor.
-                const clonedDocument = document.documentElement.cloneNode(true);
-                const clonedData = clonedDocument.querySelector('#siTengoroPhotoData');
-                clonedData.textContent = JSON.stringify(contactPhotoCache).replace(/</g, '\\u003c');
-                clonedDocument.querySelector('body')?.classList.add('on-ios-home');
-                const clonedContactContainer = clonedDocument.querySelector('#contactsContainer');
-                if (clonedContactContainer) clonedContactContainer.innerHTML = ''; // Render ulang sesuai status admin saat aplikasi dibuka.
-                for (const name of ['home', 'layanan', 'gesah', 'kontak', 'riwayat']) {
-                    const sec = clonedDocument.querySelector(`#tab-${name}`);
-                    const nav = clonedDocument.querySelector(`#nav-${name}`);
-                    if (sec) sec.classList.toggle('hidden', name !== 'home');
-                    if (nav) nav.classList.toggle('ios-nav-active', name === 'home');
+                const clone = document.documentElement.cloneNode(true);
+                clone.querySelector('#siTengoroPhotoData').textContent = JSON.stringify(contactPhotoCache).replace(/</g, '\\u003c');
+                clone.querySelector('body')?.classList.add('on-ios-home');
+                const contactContainer=clone.querySelector('#contactsContainer');
+                if(contactContainer) contactContainer.innerHTML='';
+                for(const name of ['home','layanan','gesah','kontak','riwayat']) {
+                    const section=clone.querySelector(`#tab-${name}`);
+                    if(section) section.classList.toggle('hidden',name!=='home');
                 }
-                const fullHtml = '<!DOCTYPE html>\n' + clonedDocument.outerHTML;
-                const blob = new Blob([fullHtml], {type:'text/html;charset=utf-8'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'index.html';
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 2000);
-                showToast('index.html siap diunggah ke GitHub');
-            } catch (e) {showToast('Gagal ekspor. Silakan coba kembali.');}
-            finally { /* DOM asli tidak diubah selama proses ekspor */ }
+                const blob=new Blob(['<!DOCTYPE html>\n'+clone.outerHTML], {type:'text/html;charset=utf-8'});
+                const url=URL.createObjectURL(blob);
+                const a=document.createElement('a');
+                a.href=url; a.download='si-tengoro-cadangan.html';
+                document.body.appendChild(a);a.click();a.remove();
+                setTimeout(()=>URL.revokeObjectURL(url),2000);
+                showToast('Cadangan HTML dengan foto berhasil dibuat.');
+            } catch(e) { showToast('Gagal membuat cadangan HTML.'); }
         }
 
         function handleGlobalSearch(value) {
@@ -2029,6 +2039,101 @@
             }
             deferredInstallPrompt = null;
         }
+    </script>
+    <!-- FIREBASE WEB MODULE: bacaan publik, tulisan hanya admin resmi -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js';
+      import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
+      import { getFirestore, collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js';
+
+      const config = window.SI_TENGORO_FIREBASE_CONFIG || {};
+      const valid = ['apiKey','authDomain','projectId','appId'].every(key =>
+        typeof config[key] === 'string' && config[key].length > 7 && !config[key].includes('ISI_'));
+      const cloud = window.SITCloud = {
+        configured: valid, isAdmin:false, userId:null,
+        status: valid ? 'connecting':'not-configured', errorMessage:'',
+        async signIn() {throw new Error('Firebase belum terhubung');},
+        async signOut() {throw new Error('Firebase belum terhubung');},
+        async savePhoto() {throw new Error('Firebase belum terhubung');},
+        async removePhoto() {throw new Error('Firebase belum terhubung');}
+      };
+      window.onSICloudStatusChange?.();
+      if (valid) {
+        try {
+          const app=initializeApp(config);
+          const auth=getAuth(app);
+          const db=getFirestore(app);
+          const photosCollection=collection(db,'contactPhotos');
+          let authSequence=0;
+          const setAdmin=(enabled,userId=null) => {
+            cloud.isAdmin=enabled;
+            cloud.userId=enabled?userId:null;
+            window.onSICloudAuthChange?.();
+          };
+          const checkAdmin=async(user) => {
+            if (!user) return false;
+            const snap=await getDoc(doc(db,'admins',user.uid));
+            return snap.exists() && snap.data()?.active === true;
+          };
+          cloud.signIn=async(email,password) => {
+            const result=await signInWithEmailAndPassword(auth,email,password);
+            try {
+              const allowed=await checkAdmin(result.user);
+              if (!allowed) {
+                await signOut(auth);
+                throw new Error('Akun ini belum diberi hak admin. Buat dokumen admins/UID dengan active = true.');
+              }
+              setAdmin(true,result.user.uid);
+            } catch(err) {
+              if (auth.currentUser?.uid===result.user.uid) await signOut(auth).catch(()=>{});
+              throw err;
+            }
+          };
+          cloud.signOut=async() => {await signOut(auth); setAdmin(false);};
+          const assertAdmin=() => {
+            if(!cloud.isAdmin || !auth.currentUser || auth.currentUser.uid!==cloud.userId)
+              throw new Error('Login dengan akun admin Firebase.');
+          };
+          cloud.savePhoto=async(contactId,photo) => {
+            assertAdmin();
+            if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo) || photo.length>300000)
+              throw new Error('Format atau ukuran foto tidak sesuai.');
+            await setDoc(doc(db,'contactPhotos',contactId),{photo,updatedAt:serverTimestamp()});
+          };
+          cloud.removePhoto=async(contactId) => {
+            assertAdmin();
+            await deleteDoc(doc(db,'contactPhotos',contactId));
+          };
+          onAuthStateChanged(auth,async(user) => {
+            const seq=++authSequence;
+            if(!user) {setAdmin(false);return;}
+            try {
+              const allowed=await checkAdmin(user);
+              if(seq!==authSequence) return;
+              if(allowed) setAdmin(true,user.uid);
+              else {setAdmin(false); await signOut(auth);}
+            } catch(err) {if(seq===authSequence){setAdmin(false);console.warn('Verifikasi admin gagal:',err?.code||err?.message);}}
+          });
+          onSnapshot(photosCollection,(snapshot) => {
+            const photos={};
+            snapshot.forEach(d => {
+              const photo=d.data()?.photo;
+              if(typeof photo==='string' && photo.startsWith('data:image/jpeg;base64,')) photos[d.id]=photo;
+            });
+            cloud.status='ready';cloud.errorMessage='';
+            window.onSICloudPhotos?.(photos);
+          },(err) => {
+            cloud.status='error';
+            cloud.errorMessage=err?.code==='permission-denied'?'Rules Firestore belum mengizinkan pembacaan publik':(err?.message||'Koneksi Firestore tidak tersedia');
+            window.onSICloudStatusChange?.();
+            console.warn('SI-TENGORO Firestore:',err?.code||err?.message);
+          });
+        } catch(err) {
+          cloud.status='error';cloud.errorMessage=err?.message||'Firebase gagal diinisialisasi';
+          window.onSICloudStatusChange?.();
+          console.error('SI-TENGORO Firebase:',err);
+        }
+      }
     </script>
 </body>
 </html>
